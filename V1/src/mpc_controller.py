@@ -131,7 +131,9 @@ class MPCController:
                 action_seq_with_sensors[:, 4] = froude_number_proxy
                 for i, name in enumerate(self.config['cpp_names_and_soft_sensors']):
                     if name in self.scalers:
-                         action_seq_scaled[:, i] = self.scalers[name].transform(action_seq_with_sensors[:, i].reshape(-1, 1)).flatten()
+                         #action_seq_scaled[:, i] = self.scalers[name].transform(action_seq_with_sensors[:, i].reshape(-1, 1)).flatten()
+                        # Pass as DataFrame to avoid UserWarning
+                        action_seq_scaled[:, i] = self.scalers[name].transform(pd.DataFrame(action_seq_with_sensors[:, i],columns=[name])).flatten()
 
                 action_tensor = torch.tensor(action_seq_scaled, dtype=torch.float32).unsqueeze(0).to(self.device)
 
