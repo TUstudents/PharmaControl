@@ -1,8 +1,40 @@
+[build-system]
+requires = ["setuptools>=65.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "pharmacontrol"
-version = "0.1.0"
-description = "Add your description here"
+version = "0.1.1"
+description = "Model Predictive Control with uncertainty quantification for pharmaceutical manufacturing"
 readme = "README.md"
+license = "CC-BY-NC-SA-4.0"
+authors = [
+    {name = "PharmaControl-Pro Development Team", email = "dev@pharmacontrol.ai"},
+]
+maintainers = [
+    {name = "PharmaControl-Pro Development Team", email = "dev@pharmacontrol.ai"},
+]
+keywords = [
+    "model-predictive-control",
+    "pharmaceutical-manufacturing", 
+    "uncertainty-quantification",
+    "kalman-filter",
+    "genetic-algorithm",
+    "robust-control",
+    "process-control",
+    "industrial-automation"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Manufacturing",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Chemistry",
+    "Topic :: System :: Distributed Computing",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: OS Independent",
+]
 requires-python = ">=3.12"
 dependencies = [
     "deap>=1.4.3",
@@ -20,3 +52,158 @@ dependencies = [
     "torchvision>=0.23.0",
     "tqdm>=4.67.1",
 ]
+[project.optional-dependencies]
+# Development dependencies
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "black>=22.0.0",
+    "flake8>=5.0.0",
+    "mypy>=1.0.0",
+    "isort>=5.10.0",
+]
+
+# Notebook and visualization dependencies
+notebooks = [
+    "jupyter>=1.0.0",
+    "jupyterlab>=3.4.0",
+    "matplotlib>=3.6.0",
+    "seaborn>=0.11.0",
+    "plotly>=5.10.0",
+    "ipywidgets>=8.0.0",
+]
+
+# Documentation dependencies
+docs = [
+    "sphinx>=5.0.0",
+    "sphinx-rtd-theme>=1.0.0",
+    "myst-parser>=0.18.0",
+    "sphinx-autodoc-typehints>=1.19.0",
+]
+
+# Full installation (all optional dependencies)
+full = [
+    "pharmacontrol[dev,notebooks,docs]"
+]
+
+# Production deployment
+production = [
+    "gunicorn>=20.1.0",  # For web deployment
+    "docker>=6.0.0",     # For containerization
+    "redis>=4.3.0",      # For caching and queuing
+    "celery>=5.2.0",     # For distributed processing
+]
+
+[project.urls]
+"Homepage" = "https://github.com/pharmacontrol/robust-mpc-pharma"
+"Documentation" = "https://robust-mpc-pharma.readthedocs.io"
+"Repository" = "https://github.com/pharmacontrol/robust-mpc-pharma"
+"Bug Tracker" = "https://github.com/pharmacontrol/robust-mpc-pharma/issues"
+"Changelog" = "https://github.com/pharmacontrol/robust-mpc-pharma/blob/main/CHANGELOG.md"
+
+[project.scripts]
+# Command-line interfaces
+robust-mpc = "run_controller:main"
+pharma-control = "run_controller:main"
+
+[tool.setuptools]
+packages = ["V2.robust_mpc"]
+include-package-data = true
+
+[tool.setuptools.package-data]
+robust_mpc = ["*.yaml", "*.yml", "*.json"]
+
+[tool.setuptools.exclude-package-data]
+"*" = ["*.pyc", "__pycache__/*", "*.pyo", "*.pyd", ".DS_Store"]
+
+# Development tool configurations
+
+[tool.black]
+line-length = 100
+target-version = ['py39']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+line_length = 100
+known_first_party = ["robust_mpc"]
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+
+[[tool.mypy.overrides]]
+module = [
+    "pykalman.*",
+    "deap.*",
+    "sklearn.*",
+    "joblib.*",
+]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"
+addopts = [
+    "--cov=robust_mpc",
+    "--cov-report=term-missing",
+    "--cov-report=html",
+    "--cov-fail-under=80",
+    "-v"
+]
+
+[tool.coverage.run]
+source = ["robust_mpc"]
+omit = [
+    "*/tests/*",
+    "*/test_*.py",
+    "*/__pycache__/*",
+    "*/.*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]
+
+# Versioning configuration
+[tool.setuptools_scm]
+write_to = "robust_mpc/_version.py"
+version_scheme = "post-release"
+local_scheme = "no-local-version"

@@ -12,7 +12,7 @@ name = "robust_mpc_pharma"
 version = "2.0.0"
 description = "Industrial-grade Model Predictive Control with uncertainty quantification for pharmaceutical manufacturing"
 readme = "README.md"
-license = {text = "Educational/Research Use"}
+license = "CC-BY-NC-SA-4.0"
 authors = [
     {name = "PharmaControl-Pro Development Team", email = "dev@pharmacontrol.ai"},
 ]
@@ -36,7 +36,7 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Topic :: Scientific/Engineering :: Chemistry",
     "Topic :: System :: Distributed Computing",
-    "License :: Free For Educational Use",
+        "License :: Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",

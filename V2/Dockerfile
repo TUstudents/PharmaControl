@@ -7,7 +7,7 @@
 # Run:   docker run -it --rm robust-mpc-pharma:v2
 
 # Use official Python runtime with slim variant for smaller size
-FROM python:3.11-slim
+FROM python:3.12-slim
 
 # Set metadata
 LABEL maintainer="PharmaControl-Pro Development Team <dev@pharmacontrol.ai>"
