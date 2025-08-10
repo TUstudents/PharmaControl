@@ -242,6 +242,147 @@ services:
 
 Run with: `docker-compose up`
 
+## 📋 Configuration Management
+
+### **Configuration File Structure**
+The `config.yaml` file provides centralized control over all system parameters:
+
+```yaml
+# Process variables and constraints
+process:
+  cma_names: ['d50', 'lod']
+  cpp_names: ['spray_rate', 'air_flow', 'carousel_speed']
+
+# MPC controller tuning
+mpc:
+  horizon: 50                # Planning horizon
+  integral_gain: 0.05        # Offset-free control strength
+  risk_beta: 1.5            # Risk aversion (0=neutral, >0=conservative)
+  
+# Genetic algorithm optimization
+  population_size: 40
+  generations: 15
+
+# Simulation settings
+simulation:
+  total_steps: 1000
+  step_interval_seconds: 1.0
+  target_setpoint: {d50: 380.0, lod: 1.8}
+```
+
+### **Environment-Specific Configurations**
+```bash
+# Development (fast simulation)
+python run_controller.py --config config_dev.yaml
+
+# Production (real-time operation)  
+python run_controller.py --config config_prod.yaml
+
+# Testing (minimal steps)
+python run_controller.py --config config_test.yaml
+```
+
+## 🚀 Production Deployment
+
+### **Prerequisites**
+- Python 3.9+ environment
+- Required dependencies (see `requirements.txt`)
+- Pre-trained model files (optional for demo)
+- Configuration file tuned for your process
+
+### **Installation Methods**
+
+#### **Method 1: Direct Installation**
+```bash
+# Clone repository
+git clone <repository-url>
+cd PharmaControl/V2
+
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate  # or `venv\Scripts\activate` on Windows
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Run application
+python run_controller.py
+```
+
+#### **Method 2: Package Installation**
+```bash
+# Install as package
+pip install -e .
+
+# Run from anywhere
+robust-mpc --config /path/to/config.yaml
+# or
+pharma-control --config /path/to/config.yaml
+```
+
+#### **Method 3: Container Deployment**
+```bash
+# Production container with persistent data
+docker run -d --name pharma-mpc \
+  --restart unless-stopped \
+  -v /host/data:/app/data \
+  -v /host/models:/app/models \
+  -v /host/config.yaml:/app/config.yaml \
+  -e PYTHONPATH=/app:/app/robust_mpc \
+  robust-mpc-pharma:v2
+```
+
+### **Monitoring and Logging**
+```bash
+# View container logs
+docker logs -f pharma-mpc
+
+# Monitor performance metrics
+docker exec pharma-mpc python -c "
+from robust_mpc.core import RobustMPCController
+# Get performance metrics programmatically
+"
+
+# Health check
+docker exec pharma-mpc python -c "import robust_mpc; print('System OK')"
+```
+
+## 🔧 Development Setup
+
+### **Development Environment**
+```bash
+# Clone with full development setup
+git clone <repository-url>
+cd PharmaControl/V2
+
+# Install with development dependencies
+pip install -e ".[dev,notebooks]"
+
+# Set up pre-commit hooks
+pre-commit install
+
+# Run tests
+pytest tests/ -v --cov=robust_mpc
+
+# Code formatting
+black robust_mpc/
+isort robust_mpc/
+
+# Type checking
+mypy robust_mpc/
+```
+
+### **Jupyter Development**
+```bash
+# Start Jupyter Lab
+jupyter lab
+
+# Or with Docker for isolated environment
+docker run -p 8888:8888 -v $(pwd):/work \
+  robust-mpc-pharma:v2 \
+  jupyter lab --ip=0.0.0.0 --allow-root --no-browser
+```
+
 ## 🎯 Performance Targets vs V1
 
 | Metric | V1 Baseline | V2 Target | Improvement |
@@ -268,6 +409,124 @@ Run with: `docker-compose up`
 - Tube MPC for constraint satisfaction
 - Robust invariant sets
 - Safety-critical compliance
+
+## 🛠️ Troubleshooting
+
+### **Common Issues and Solutions**
+
+#### **Import Errors**
+```bash
+# Error: ModuleNotFoundError: No module named 'robust_mpc'
+# Solution: Ensure correct Python path
+export PYTHONPATH=$PYTHONPATH:/path/to/PharmaControl/V2
+
+# Or install as package
+pip install -e .
+```
+
+#### **Missing Dependencies**
+```bash
+# Error: No module named 'pykalman' or 'deap'
+# Solution: Install all requirements
+pip install -r requirements.txt
+
+# For development dependencies
+pip install -e ".[dev,notebooks]"
+```
+
+#### **Configuration Issues**
+```bash
+# Error: Configuration file not found
+# Solution: Specify correct path
+python run_controller.py --config /full/path/to/config.yaml
+
+# Or create default config
+python -c "
+import yaml
+from run_controller import get_default_config
+with open('config.yaml', 'w') as f:
+    yaml.dump(get_default_config(), f, default_flow_style=False)
+"
+```
+
+#### **Performance Issues**
+```bash
+# Issue: Slow optimization
+# Solution: Reduce GA parameters in config.yaml
+mpc:
+  population_size: 20    # Reduce from 40
+  generations: 10        # Reduce from 15
+
+# Issue: Memory usage
+# Solution: Reduce model complexity
+model:
+  hyperparameters:
+    d_model: 32          # Reduce from 64
+    mc_samples: 10       # Reduce from 25
+```
+
+#### **Docker Issues**
+```bash
+# Issue: Container fails to start
+# Solution: Check logs and rebuild
+docker logs <container-name>
+docker build --no-cache -t robust-mpc-pharma:v2 .
+
+# Issue: Permission errors
+# Solution: Fix file permissions
+chmod -R 755 /path/to/PharmaControl/V2
+```
+
+### **Debugging Mode**
+```bash
+# Enable verbose logging
+python run_controller.py --config config.yaml --debug
+
+# Run with Python debugger
+python -m pdb run_controller.py
+
+# Profile performance
+python -m cProfile -o profile.stats run_controller.py
+python -c "import pstats; pstats.Stats('profile.stats').sort_stats('time').print_stats(10)"
+```
+
+## 🧪 Testing and Validation
+
+### **Unit Tests**
+```bash
+# Run basic library tests
+python tests/test_library_structure.py
+
+# Run with pytest for detailed output
+pytest tests/ -v --cov=robust_mpc --cov-report=html
+
+# Test specific components
+pytest tests/test_core.py::test_robust_mpc_controller -v
+```
+
+### **Integration Tests**
+```bash
+# Test full application
+python run_controller.py --no-realtime --steps 100
+
+# Test with different configurations
+python run_controller.py --config config_test.yaml --steps 50
+
+# Container integration test
+docker run --rm robust-mpc-pharma:v2 python run_controller.py --steps 10
+```
+
+### **Performance Validation**
+```bash
+# Run V2-5 comparison notebook
+jupyter nbconvert --execute notebooks/V2-5_V2_vs_V1_Showdown_Stress_Test_Comparison.ipynb
+
+# Generate performance report
+python -c "
+from robust_mpc.core import RobustMPCController
+# Run automated performance assessment
+"
+```
 
 ## 🔬 Technical Innovations
 

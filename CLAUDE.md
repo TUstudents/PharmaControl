@@ -149,3 +149,4 @@ When adding new features:
 - **Industrial readiness**: Code follows production patterns with proper error handling
 - **Educational value**: Clear documentation and progressive learning materials
 - **Reproducible research**: Fixed random seeds and deterministic behavior where possible
+- "gitAttribution": false, "includeCoAuthoredBy": false
