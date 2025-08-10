@@ -1,0 +1,146 @@
+# RobustMPC-Pharma V2 Configuration File
+# 
+# This centralized configuration file allows easy tuning of the entire
+# V2 system without modifying code. All key parameters for the robust
+# MPC controller, probabilistic model, Kalman filter, and simulation
+# are defined here.
+#
+# Version: 2.0.0
+# Updated for V1/V2 directory structure
+
+# File paths for models and data
+files:
+  # Pre-trained probabilistic transformer model
+  model_path: './models/probabilistic_model.pth'
+  # Data scalers from training
+  scalers_path: './data/scalers.joblib'
+  # V1 plant simulator path (for comparison)
+  v1_simulator_path: '../V1/src/'
+
+# Process variable definitions
+process:
+  # Critical Material Attributes (outputs to control)
+  cma_names: ['d50', 'lod']
+  # Critical Process Parameters (control inputs)
+  cpp_names: ['spray_rate', 'air_flow', 'carousel_speed']
+  # Full CPP list including soft sensors
+  cpp_full_names: ['spray_rate', 'air_flow', 'carousel_speed', 'specific_energy', 'froude_number_proxy']
+
+# Probabilistic transformer model configuration
+model:
+  hyperparameters:
+    d_model: 64              # Model dimension
+    nhead: 4                 # Number of attention heads
+    num_encoder_layers: 2    # Encoder depth
+    num_decoder_layers: 2    # Decoder depth
+    dim_feedforward: 256     # Feedforward dimension
+    dropout: 0.15            # Dropout rate for regularization
+
+# Kalman Filter state estimator configuration
+kalman_filter:
+  process_noise_std: 1.0     # Process noise standard deviation
+  measurement_noise_std: 15.0 # Measurement noise standard deviation (higher = more filtering)
+  initial_covariance_scale: 1.0 # Initial uncertainty scaling
+
+# Model Predictive Controller configuration
+mpc:
+  # Temporal parameters
+  lookback: 36               # Historical data points for model input
+  horizon: 50                # Prediction and control horizon steps
+  
+  # Control tuning parameters
+  integral_gain: 0.05        # Integral action strength (offset-free control)
+  risk_beta: 1.5             # Risk aversion parameter (0=risk-neutral, >0=risk-averse)
+  control_effort_weight: 0.05 # Penalty for aggressive control actions
+  
+  # Uncertainty quantification
+  mc_samples: 25             # Monte Carlo samples for uncertainty estimation
+  
+  # Process variable references (must match process section)
+  cma_names: ['d50', 'lod']
+  cpp_names: ['spray_rate', 'air_flow', 'carousel_speed']
+  cpp_full_names: ['spray_rate', 'air_flow', 'carousel_speed', 'specific_energy', 'froude_number_proxy']
+  
+  # Operational constraints (equipment limits)
+  cpp_constraints:
+    spray_rate:
+      min_val: 80.0          # Minimum spray rate (g/min)
+      max_val: 180.0         # Maximum spray rate (g/min)
+    air_flow:
+      min_val: 400.0         # Minimum air flow (m³/h)
+      max_val: 700.0         # Maximum air flow (m³/h)  
+    carousel_speed:
+      min_val: 20.0          # Minimum carousel speed (rph)
+      max_val: 40.0          # Maximum carousel speed (rph)
+  
+  # Genetic Algorithm optimization parameters
+  population_size: 40        # GA population size
+  generations: 15            # GA generations (reduced for real-time use)
+  mutation_rate: 0.1         # GA mutation probability
+  crossover_rate: 0.7        # GA crossover probability
+
+# Simulation and deployment configuration
+simulation:
+  # Execution parameters
+  total_steps: 1000          # Total control steps to run
+  step_interval_seconds: 1.0 # Time delay between steps (real-time simulation)
+  
+  # Initial conditions
+  initial_state:
+    d50: 450.0               # Initial particle size (μm)
+    lod: 1.2                 # Initial moisture content (%)
+    
+  initial_cpps:
+    spray_rate: 100.0        # Initial spray rate (g/min)
+    air_flow: 450.0          # Initial air flow (m³/h)
+    carousel_speed: 25.0     # Initial carousel speed (rph)
+    
+  # Control target (setpoint)
+  target_setpoint:
+    d50: 380.0               # Target particle size (μm)
+    lod: 1.8                 # Target moisture content (%)
+
+# Logging and monitoring configuration
+logging:
+  level: INFO                # Logging level (DEBUG, INFO, WARNING, ERROR)
+  console_output: true       # Enable console logging
+  file_output: false         # Enable file logging
+  performance_metrics: true  # Track detailed performance metrics
+  
+# Advanced features (future extensions)
+advanced:
+  # Online learning parameters
+  adaptive_learning: false   # Enable online model adaptation
+  performance_monitoring: true # Monitor degradation and drift
+  
+  # Safety and validation
+  constraint_checking: true  # Validate all constraints
+  safety_margins: 0.05       # Safety margin for constraints (5%)
+  
+  # Integration options
+  rest_api_enabled: false    # Enable REST API interface
+  mqtt_enabled: false        # Enable MQTT communication
+  database_logging: false    # Enable database logging
+
+# Environment-specific overrides
+# These settings can be overridden for different deployment environments
+environments:
+  development:
+    simulation:
+      step_interval_seconds: 0.1  # Faster simulation for development
+    logging:
+      level: DEBUG
+      
+  production:
+    mpc:
+      generations: 10             # Faster optimization for production
+    simulation:
+      step_interval_seconds: 5.0  # Slower, more realistic timing
+    logging:
+      level: WARNING
+      file_output: true
+      
+  testing:
+    simulation:
+      total_steps: 100
+      step_interval_seconds: 0.01 # Very fast for testing
