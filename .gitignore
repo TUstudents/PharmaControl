@@ -61,3 +61,8 @@ uv.lock
 
 # Claude
 .claude/
+CLAUDE.md
+
+# Gemini
+.gemini/
+GEMINI.md

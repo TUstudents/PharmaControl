@@ -118,13 +118,20 @@ class MPCController:
             pbar = tqdm(valid_candidates_unscaled, desc="Evaluating MPC Candidates", leave=False)
             for action_seq_unscaled in pbar:
                 # Scale the candidate action sequence for the model
-                action_seq_scaled = np.zeros_like(action_seq_unscaled)
+                #action_seq_scaled = np.zeros_like(action_seq_unscaled)
+                action_seq_scaled = np.zeros((action_seq_unscaled.shape[0], len(self.config['cpp_names_and_soft_sensors'])))
+                # Add soft sensors to the action sequence
+                action_seq_with_sensors = np.zeros((action_seq_unscaled.shape[0], len(self.config[ 'cpp_names_and_soft_sensors'])))
+                action_seq_with_sensors[:, :action_seq_unscaled.shape[1]] = action_seq_unscaled
+                spray_rate = action_seq_with_sensors[:, 0]
+                carousel_speed = action_seq_with_sensors[:, 2]
+                specific_energy = (spray_rate * carousel_speed) / 1000.0
+                froude_number_proxy = (carousel_speed**2) / 9.81
+                action_seq_with_sensors[:, 3] = specific_energy
+                action_seq_with_sensors[:, 4] = froude_number_proxy
                 for i, name in enumerate(self.config['cpp_names_and_soft_sensors']):
-                     if name in self.scalers:
-                        # This part needs to be improved to handle soft sensors correctly.
-                        # For now, we assume we can scale the base CPPs.
-                        if i < len(self.config['cpp_names']):
-                             action_seq_scaled[:, i] = self.scalers[name].transform(action_seq_unscaled[:, i].reshape(-1, 1)).flatten()
+                    if name in self.scalers:
+                         action_seq_scaled[:, i] = self.scalers[name].transform(action_seq_with_sensors[:, i].reshape(-1, 1)).flatten()
 
                 action_tensor = torch.tensor(action_seq_scaled, dtype=torch.float32).unsqueeze(0).to(self.device)
 
