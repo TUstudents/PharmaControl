@@ -115,7 +115,7 @@ def get_default_config():
     return DEFAULT_CONFIG.copy()
 
 # Version compatibility check
-MIN_PYTHON_VERSION = (3, 8)
+MIN_PYTHON_VERSION = (3, 9)  # Minimum required Python version
 import sys
 
 if sys.version_info < MIN_PYTHON_VERSION:

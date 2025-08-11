@@ -1,213 +1,82 @@
-"""
-Probabilistic Prediction Models Module
-
-This module provides uncertainty-aware predictive models that quantify
-their confidence in predictions. These models are essential for robust
-control systems that need to account for prediction uncertainty.
-
-Key Classes:
-- ProbabilisticTransformer: Transformer with Monte Carlo Dropout for uncertainty
-- BayesianTransformer: True Bayesian neural network (future implementation)
-- EnsemblePredictor: Multiple model ensemble (future implementation)
-- PhysicsInformedPredictor: Physics-constrained neural networks (future)
-
-Dependencies:
-- torch: PyTorch deep learning framework
-- numpy: Numerical computations
-"""
-
 import torch
 import torch.nn as nn
-import numpy as np
-from typing import Tuple, Optional, List
-import warnings
+import math
+
+# We can reuse the PositionalEncoding class from V1
+class PositionalEncoding(nn.Module):
+    def __init__(self, d_model: int, dropout: float = 0.1, max_len: int = 5000):
+        super().__init__()
+        self.dropout = nn.Dropout(p=dropout)
+        position = torch.arange(max_len).unsqueeze(1)
+        div_term = torch.exp(torch.arange(0, d_model, 2) * (-math.log(10000.0) / d_model))
+        pe = torch.zeros(max_len, 1, d_model)
+        pe[:, 0, 0::2] = torch.sin(position * div_term)
+        pe[:, 0, 1::2] = torch.cos(position * div_term)
+        self.register_buffer('pe', pe)
+
+    def forward(self, x):
+        x = x + self.pe[:x.size(0)]
+        return self.dropout(x)
 
 class ProbabilisticTransformer(nn.Module):
     """
-    Transformer-based predictive model with uncertainty quantification.
-    
-    Uses Monte Carlo Dropout to estimate prediction uncertainty by making
-    multiple forward passes with different dropout patterns and computing
-    statistics across the ensemble.
-    
-    This will be implemented in Notebook V2-2.
+    A Transformer model that supports probabilistic forecasting via MC Dropout.
+    The architecture is identical to the V1 predictor, but with added methods.
     """
-    
-    def __init__(self, 
-                 cma_features: int, 
-                 cpp_features: int, 
-                 d_model: int = 64, 
-                 nhead: int = 4,
-                 num_encoder_layers: int = 2, 
-                 num_decoder_layers: int = 2, 
-                 dim_feedforward: int = 256, 
-                 dropout: float = 0.1,
-                 mc_samples: int = 50):
-        """
-        Initialize the Probabilistic Transformer.
-        
-        Args:
-            cma_features (int): Number of Critical Material Attributes
-            cpp_features (int): Number of Critical Process Parameters (including soft sensors)
-            d_model (int): Transformer embedding dimension
-            nhead (int): Number of attention heads
-            num_encoder_layers (int): Number of encoder layers
-            num_decoder_layers (int): Number of decoder layers
-            dim_feedforward (int): Feedforward network dimension
-            dropout (float): Dropout probability for uncertainty estimation
-            mc_samples (int): Number of Monte Carlo samples for uncertainty
-        """
+    def __init__(self, cma_features, cpp_features, d_model=64, nhead=4, 
+                 num_encoder_layers=2, num_decoder_layers=2, dim_feedforward=256, dropout=0.1):
         super().__init__()
-        
-        # Store configuration
+        self.d_model = d_model
         self.cma_features = cma_features
         self.cpp_features = cpp_features
-        self.d_model = d_model
-        self.mc_samples = mc_samples
-        self.dropout_rate = dropout
-        
-        # Placeholder - will be implemented in V2-2
-        raise NotImplementedError(
-            "ProbabilisticTransformer will be implemented in Notebook V2-2. "
-            "This placeholder ensures the library structure is complete."
+
+        # --- Layers (identical to V1 model) ---
+        self.cma_encoder_embedding = nn.Linear(cma_features, d_model)
+        self.cpp_encoder_embedding = nn.Linear(cpp_features, d_model)
+        self.cpp_decoder_embedding = nn.Linear(cpp_features, d_model)
+        self.pos_encoder = PositionalEncoding(d_model, dropout)
+        self.transformer = nn.Transformer(
+            d_model=d_model, nhead=nhead,
+            num_encoder_layers=num_encoder_layers, num_decoder_layers=num_decoder_layers,
+            dim_feedforward=dim_feedforward, dropout=dropout, batch_first=True
         )
-    
+        self.output_linear = nn.Linear(d_model, cma_features)
+
     def forward(self, past_cmas, past_cpps, future_cpps):
-        """Forward pass - deterministic prediction."""
-        raise NotImplementedError("Implemented in V2-2")
-    
-    def predict_distribution(self, 
-                           past_cmas: torch.Tensor, 
-                           past_cpps: torch.Tensor, 
-                           future_cpps: torch.Tensor,
-                           n_samples: Optional[int] = None) -> Tuple[torch.Tensor, torch.Tensor]:
+        past_cma_emb = self.cma_encoder_embedding(past_cmas)
+        past_cpp_emb = self.cpp_encoder_embedding(past_cpps)
+        src = self.pos_encoder(past_cma_emb + past_cpp_emb)
+        tgt = self.pos_encoder(self.cpp_decoder_embedding(future_cpps))
+        tgt_mask = nn.Transformer.generate_square_subsequent_mask(tgt.size(1)).to(tgt.device)
+        output = self.transformer(src, tgt, tgt_mask=tgt_mask)
+        return self.output_linear(output)
+
+    def predict_distribution(self, past_cmas, past_cpps, future_cpps, n_samples=30):
         """
-        Make predictions with uncertainty quantification using Monte Carlo Dropout.
-        
-        Args:
-            past_cmas: Historical CMA data (batch_size, lookback, n_cma)
-            past_cpps: Historical CPP data (batch_size, lookback, n_cpp)  
-            future_cpps: Planned future CPPs (batch_size, horizon, n_cpp)
-            n_samples: Number of MC samples (uses default if None)
-            
+        Performs probabilistic forecasting using Monte Carlo Dropout.
+
         Returns:
-            Tuple[torch.Tensor, torch.Tensor]: (prediction_mean, prediction_std)
+            tuple: (mean_prediction, std_prediction)
         """
-        raise NotImplementedError("Implemented in V2-2")
-    
-    def predict_quantiles(self, 
-                         past_cmas: torch.Tensor,
-                         past_cpps: torch.Tensor, 
-                         future_cpps: torch.Tensor,
-                         quantiles: List[float] = [0.1, 0.5, 0.9]) -> torch.Tensor:
-        """
-        Predict specified quantiles for robust optimization.
-        
-        Args:
-            past_cmas: Historical CMA data
-            past_cpps: Historical CPP data
-            future_cpps: Planned future CPPs
-            quantiles: List of quantiles to compute
-            
-        Returns:
-            torch.Tensor: Predictions at specified quantiles
-        """
-        raise NotImplementedError("Implemented in V2-2")
+        # Set to evaluation mode BUT keep dropout layers active.
+        # This is done by activating training mode only for dropout layers.
+        self.train()
+        # An alternative, cleaner way is to create a custom method to only turn on dropout.
+        # For simplicity, we use train() as it activates dropout.
 
+        with torch.no_grad():
+            # Collect multiple predictions
+            predictions = [self.forward(past_cmas, past_cpps, future_cpps) for _ in range(n_samples)]
 
-class BayesianTransformer:
-    """
-    True Bayesian Neural Network implementation of Transformer.
-    
-    Uses variational inference to maintain full posterior distributions
-    over model parameters, providing principled uncertainty quantification.
-    
-    Note: This is a placeholder for future implementation (V2.3+).
-    """
-    
-    def __init__(self):
-        raise NotImplementedError(
-            "BayesianTransformer is planned for future implementation (V2.3+). "
-            "Use ProbabilisticTransformer for current uncertainty-aware modeling."
-        )
+            # Stack predictions into a new dimension for calculation
+            # Shape: (n_samples, batch_size, horizon, features)
+            predictions_stacked = torch.stack(predictions)
 
+            # Calculate mean and standard deviation across the samples dimension
+            mean_prediction = torch.mean(predictions_stacked, dim=0)
+            std_prediction = torch.std(predictions_stacked, dim=0)
 
-class EnsemblePredictor:
-    """
-    Ensemble of multiple predictive models for uncertainty quantification.
-    
-    Trains multiple models on different subsets of data or with different
-    architectures, then combines their predictions to estimate uncertainty.
-    
-    Note: This is a placeholder for future implementation (V2.2+).
-    """
-    
-    def __init__(self):
-        raise NotImplementedError(
-            "EnsemblePredictor is planned for future implementation (V2.2+). "
-            "Use ProbabilisticTransformer for current uncertainty-aware modeling."
-        )
+        # Return model to standard evaluation mode
+        self.eval()
 
-
-class PhysicsInformedPredictor:
-    """
-    Physics-Informed Neural Network that incorporates domain knowledge.
-    
-    Combines data-driven learning with physical constraints and relationships
-    for improved generalization and interpretability.
-    
-    Note: This is a placeholder for future implementation (V2.4+).
-    """
-    
-    def __init__(self):
-        raise NotImplementedError(
-            "PhysicsInformedPredictor is planned for future implementation (V2.4+). "
-            "Use ProbabilisticTransformer for current uncertainty-aware modeling."
-        )
-
-
-# Utility functions for model uncertainty
-def epistemic_uncertainty(predictions: np.ndarray) -> np.ndarray:
-    """
-    Calculate epistemic uncertainty (model uncertainty) from MC samples.
-    
-    Args:
-        predictions: Array of predictions from MC samples (n_samples, ...)
-        
-    Returns:
-        np.ndarray: Epistemic uncertainty estimate
-    """
-    return np.std(predictions, axis=0)
-
-
-def aleatoric_uncertainty(predictions: np.ndarray, 
-                         predicted_variances: Optional[np.ndarray] = None) -> np.ndarray:
-    """
-    Calculate aleatoric uncertainty (data uncertainty).
-    
-    Args:
-        predictions: Array of predictions
-        predicted_variances: Model-predicted variances (if available)
-        
-    Returns:
-        np.ndarray: Aleatoric uncertainty estimate
-    """
-    if predicted_variances is not None:
-        return np.sqrt(predicted_variances)
-    else:
-        warnings.warn("No predicted variances provided. Returning zeros.")
-        return np.zeros_like(predictions)
-
-
-def total_uncertainty(epistemic: np.ndarray, aleatoric: np.ndarray) -> np.ndarray:
-    """
-    Combine epistemic and aleatoric uncertainties.
-    
-    Args:
-        epistemic: Epistemic uncertainty
-        aleatoric: Aleatoric uncertainty
-        
-    Returns:
-        np.ndarray: Total uncertainty
-    """
-    return np.sqrt(epistemic**2 + aleatoric**2)
+        return mean_prediction, std_prediction

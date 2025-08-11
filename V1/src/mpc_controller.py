@@ -2,6 +2,7 @@ import torch
 import numpy as np
 import itertools
 from tqdm.auto import tqdm
+import pandas as pd
 
 class MPCController:
     """
@@ -85,10 +86,10 @@ class MPCController:
     def suggest_action(self, past_cmas_scaled, past_cpps_scaled, target_cmas_unscaled):
         """The main MPC loop to find and return the best single control action."""
         # Get the last known CPPs (unscaled) to base our search on
-        last_cpps_scaled = past_cpps_scaled[-1, :]
+        last_cpps_scaled = past_cpps_scaled.iloc[-1, :].values
         current_cpps_unscaled = np.zeros(len(self.config['cpp_names']))
         for i, name in enumerate(self.config['cpp_names']):
-            current_cpps_unscaled[i] = self.scalers[name].inverse_transform(last_cpps_scaled[i].reshape(-1, 1))
+            current_cpps_unscaled[i] = self.scalers[name].inverse_transform(last_cpps_scaled[i].reshape(-1, 1)).flatten()[0]
 
         # 1. Generate all possible actions
         candidates_unscaled = self._generate_control_lattice(current_cpps_unscaled)
@@ -108,11 +109,11 @@ class MPCController:
         target_cmas_scaled = np.zeros_like(target_cmas_unscaled)
         for i, name in enumerate(self.config['cma_names']):
             target_cmas_scaled[:, i] = self.scalers[name].transform(target_cmas_unscaled[:, i].reshape(-1, 1)).flatten()
-        target_cmas_tensor = torch.tensor(target_cmas_scaled, dtype=torch.float32).unsqueeze(0)
+        target_cmas_tensor = torch.tensor(target_cmas_scaled, dtype=torch.float32).unsqueeze(0).to(self.device)
 
         # Convert historical data to tensors
-        past_cmas_tensor = torch.tensor(past_cmas_scaled, dtype=torch.float32).unsqueeze(0).to(self.device)
-        past_cpps_tensor = torch.tensor(past_cpps_scaled, dtype=torch.float32).unsqueeze(0).to(self.device)
+        past_cmas_tensor = torch.tensor(past_cmas_scaled.values, dtype=torch.float32).unsqueeze(0).to(self.device)
+        past_cpps_tensor = torch.tensor(past_cpps_scaled.values, dtype=torch.float32).unsqueeze(0).to(self.device)
 
         with torch.no_grad():
             pbar = tqdm(valid_candidates_unscaled, desc="Evaluating MPC Candidates", leave=False)

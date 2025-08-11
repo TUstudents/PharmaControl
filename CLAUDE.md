@@ -18,13 +18,10 @@ All versions use uv as package manager with `.venv` virtual environments:
 ```bash
 # Setup virtual environment and install dependencies for any version
 cd V1/  # or V2/ or V3/
-uv venv .venv
 source .venv/bin/activate
-uv pip install -e .
 
 # Install with development dependencies (V2)
 cd V2/
-uv venv .venv
 source .venv/bin/activate
 uv pip install -e ".[dev,notebooks]"
 
