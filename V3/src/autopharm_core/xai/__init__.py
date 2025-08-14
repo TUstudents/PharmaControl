@@ -1,8 +1,8 @@
 """
 Explainable AI components for AutoPharm V3.
 
-This module provides explanation and trust-building capabilities
-for autonomous control decisions using SHAP-based techniques.
+This module provides SHAP-based explanations and decision transparency
+for building trust in autonomous control systems.
 """
 
 # Progressive imports as components become available

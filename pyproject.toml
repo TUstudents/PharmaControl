@@ -107,7 +107,7 @@ robust-mpc = "run_controller:main"
 pharma-control = "run_controller:main"
 
 [tool.setuptools]
-packages = ["V2.robust_mpc"]
+packages = ["V2.robust_mpc","V1.src"]
 include-package-data = true
 
 [tool.setuptools.package-data]
