@@ -139,8 +139,8 @@ class MPCController:
                 # Add soft sensors to the action sequence
                 action_seq_with_sensors = np.zeros((action_seq_unscaled.shape[0], len(self.config[ 'cpp_names_and_soft_sensors'])))
                 action_seq_with_sensors[:, :action_seq_unscaled.shape[1]] = action_seq_unscaled
-                spray_rate = action_seq_with_sensors[:, 0]
-                carousel_speed = action_seq_with_sensors[:, 2]
+                spray_rate = action_seq_unscaled[:, 0]
+                carousel_speed = action_seq_unscaled[:, 2]
                 specific_energy = (spray_rate * carousel_speed) / 1000.0
                 froude_number_proxy = (carousel_speed**2) / 9.81
                 action_seq_with_sensors[:, 3] = specific_energy
