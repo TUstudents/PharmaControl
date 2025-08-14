@@ -84,25 +84,20 @@ class MPCController:
         total_cost = target_error + self.config['control_effort_lambda'] * control_effort
         return total_cost.item()
 
-    def suggest_action(self, past_cmas_scaled: pd.DataFrame, past_cpps_scaled: pd.DataFrame, target_cmas_unscaled: np.ndarray) -> np.ndarray:
+    def suggest_action(self, past_cmas_unscaled: pd.DataFrame, past_cpps_unscaled: pd.DataFrame, target_cmas_unscaled: np.ndarray) -> np.ndarray:
         """
         Find the optimal single control action using Model Predictive Control.
         
         Args:
-            past_cmas_scaled: DataFrame with scaled CMA history, columns must match config['cma_names']
-            past_cpps_scaled: DataFrame with scaled CPP history, columns must match config['cpp_names_and_soft_sensors'] 
+            past_cmas_unscaled: DataFrame with unscaled CMA history, columns must match config['cma_names']
+            past_cpps_unscaled: DataFrame with unscaled CPP history, columns must match config['cpp_names_and_soft_sensors'] 
             target_cmas_unscaled: Array of shape (horizon, num_cmas) with unscaled target values
             
         Returns:
             Array of shape (num_base_cpps,) with optimal unscaled CPP values
         """
-        # Extract current CPPs using column names for robustness
-        last_cpps_df = past_cpps_scaled.iloc[-1:][self.config['cpp_names']]
-            
-        # Inverse transform using proper DataFrame with column names
-        current_cpps_unscaled = np.zeros(len(self.config['cpp_names']))
-        for i, name in enumerate(self.config['cpp_names']):
-            current_cpps_unscaled[i] = self.scalers[name].inverse_transform(last_cpps_df[[name]])[0, 0]
+        # Extract current CPPs directly from unscaled data
+        current_cpps_unscaled = past_cpps_unscaled.iloc[-1][self.config['cpp_names']].values
         # 1. Generate all possible actions
         candidates_unscaled = self._generate_control_lattice(current_cpps_unscaled)
 
@@ -124,6 +119,15 @@ class MPCController:
             target_cmas_scaled[:, i] = self.scalers[name].transform(target_df).flatten()
         target_cmas_tensor = torch.tensor(target_cmas_scaled, dtype=torch.float32).unsqueeze(0)
 
+        # Scale the historical data for model input
+        past_cmas_scaled = pd.DataFrame(index=past_cmas_unscaled.index)
+        for col in self.config['cma_names']:
+            past_cmas_scaled[col] = self.scalers[col].transform(past_cmas_unscaled[[col]]).flatten()
+            
+        past_cpps_scaled = pd.DataFrame(index=past_cpps_unscaled.index)
+        for col in self.config['cpp_names_and_soft_sensors']:
+            past_cpps_scaled[col] = self.scalers[col].transform(past_cpps_unscaled[[col]]).flatten()
+        
         # Convert DataFrames to numpy arrays for tensor creation
         past_cmas_values = past_cmas_scaled.values
         past_cpps_values = past_cpps_scaled.values
