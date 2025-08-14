@@ -85,18 +85,17 @@ class MPCController:
 
     def suggest_action(self, past_cmas_scaled, past_cpps_scaled, target_cmas_unscaled):
         """The main MPC loop to find and return the best single control action."""
-        # Handle both DataFrame and numpy array inputs
+        # Extract current CPPs using proper column names (not positional slicing)
         if isinstance(past_cpps_scaled, pd.DataFrame):
-            last_cpps_scaled = past_cpps_scaled.iloc[-1].values
+            # Use column names to ensure we get the right data regardless of column order
+            last_cpps_df = past_cpps_scaled.iloc[-1:][self.config['cpp_names']]
         else:
-            last_cpps_scaled = past_cpps_scaled[-1]
+            # If numpy array, assume it matches cpp_names_and_soft_sensors order
+            # Extract only the base CPPs (first len(cpp_names) elements)
+            last_cpps_values = past_cpps_scaled[-1][:len(self.config['cpp_names'])]
+            last_cpps_df = pd.DataFrame([last_cpps_values], columns=self.config['cpp_names'])
             
-        # Convert to numpy array if it's a pandas Series
-        if isinstance(last_cpps_scaled, pd.Series):
-            last_cpps_scaled = last_cpps_scaled.values
-            
-        # Use DataFrame for proper feature names during inverse transform
-        last_cpps_df = pd.DataFrame([last_cpps_scaled[:len(self.config['cpp_names'])]], columns=self.config['cpp_names'])
+        # Inverse transform using proper DataFrame with column names
         current_cpps_unscaled = np.zeros(len(self.config['cpp_names']))
         for i, name in enumerate(self.config['cpp_names']):
             current_cpps_unscaled[i] = self.scalers[name].inverse_transform(last_cpps_df[[name]])[0, 0]
