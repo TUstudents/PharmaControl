@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 import itertools
 from tqdm.auto import tqdm
+from typing import Dict, List, Tuple
 
 class MPCController:
     """
@@ -83,17 +84,20 @@ class MPCController:
         total_cost = target_error + self.config['control_effort_lambda'] * control_effort
         return total_cost.item()
 
-    def suggest_action(self, past_cmas_scaled, past_cpps_scaled, target_cmas_unscaled):
-        """The main MPC loop to find and return the best single control action."""
-        # Extract current CPPs using proper column names (not positional slicing)
-        if isinstance(past_cpps_scaled, pd.DataFrame):
-            # Use column names to ensure we get the right data regardless of column order
-            last_cpps_df = past_cpps_scaled.iloc[-1:][self.config['cpp_names']]
-        else:
-            # If numpy array, assume it matches cpp_names_and_soft_sensors order
-            # Extract only the base CPPs (first len(cpp_names) elements)
-            last_cpps_values = past_cpps_scaled[-1][:len(self.config['cpp_names'])]
-            last_cpps_df = pd.DataFrame([last_cpps_values], columns=self.config['cpp_names'])
+    def suggest_action(self, past_cmas_scaled: pd.DataFrame, past_cpps_scaled: pd.DataFrame, target_cmas_unscaled: np.ndarray) -> np.ndarray:
+        """
+        Find the optimal single control action using Model Predictive Control.
+        
+        Args:
+            past_cmas_scaled: DataFrame with scaled CMA history, columns must match config['cma_names']
+            past_cpps_scaled: DataFrame with scaled CPP history, columns must match config['cpp_names_and_soft_sensors'] 
+            target_cmas_unscaled: Array of shape (horizon, num_cmas) with unscaled target values
+            
+        Returns:
+            Array of shape (num_base_cpps,) with optimal unscaled CPP values
+        """
+        # Extract current CPPs using column names for robustness
+        last_cpps_df = past_cpps_scaled.iloc[-1:][self.config['cpp_names']]
             
         # Inverse transform using proper DataFrame with column names
         current_cpps_unscaled = np.zeros(len(self.config['cpp_names']))
@@ -120,15 +124,13 @@ class MPCController:
             target_cmas_scaled[:, i] = self.scalers[name].transform(target_df).flatten()
         target_cmas_tensor = torch.tensor(target_cmas_scaled, dtype=torch.float32).unsqueeze(0)
 
-        # Convert DataFrames to numpy arrays if needed
-        if isinstance(past_cmas_scaled, pd.DataFrame):
-            past_cmas_scaled = past_cmas_scaled.values
-        if isinstance(past_cpps_scaled, pd.DataFrame):
-            past_cpps_scaled = past_cpps_scaled.values
+        # Convert DataFrames to numpy arrays for tensor creation
+        past_cmas_values = past_cmas_scaled.values
+        past_cpps_values = past_cpps_scaled.values
             
         # Convert to tensors
-        past_cmas_tensor = torch.tensor(past_cmas_scaled, dtype=torch.float32).unsqueeze(0).to(self.device)
-        past_cpps_tensor = torch.tensor(past_cpps_scaled, dtype=torch.float32).unsqueeze(0).to(self.device)
+        past_cmas_tensor = torch.tensor(past_cmas_values, dtype=torch.float32).unsqueeze(0).to(self.device)
+        past_cpps_tensor = torch.tensor(past_cpps_values, dtype=torch.float32).unsqueeze(0).to(self.device)
 
         with torch.no_grad():
             pbar = tqdm(valid_candidates_unscaled, desc="Evaluating MPC Candidates", leave=False)
