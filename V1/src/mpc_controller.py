@@ -67,18 +67,20 @@ class MPCController:
 
         return valid_candidates
 
-    def _calculate_cost(self, prediction, action, target_cmas):
+    def _calculate_cost(self, prediction, action, target_cmas, current_action):
         """Calculates the cost of a predicted trajectory."""
         # Ensure target is on the correct device
         target_cmas = target_cmas.to(self.device)
+        current_action = current_action.to(self.device)
 
         # 1. Target Error Cost (how far are we from the setpoint?)
         # Using L1 loss (Mean Absolute Error) is often more robust to outliers
         target_error = torch.mean(torch.abs(prediction - target_cmas))
 
-        # 2. Control Effort Cost (penalize large changes to promote stability)
-        # This is a placeholder; a more complex version could penalize deviation from a desired steady state
-        control_effort = torch.mean(torch.abs(action - action[0])) # Penalize non-constant actions
+        # 2. Control Effort Cost (penalize large changes from current state)
+        # FIXED: Compare first proposed action to current action, not to itself
+        proposed_first_action = action[0, 0, :len(self.config['cpp_names'])]  # Only base CPPs, not soft sensors
+        control_effort = torch.mean(torch.abs(proposed_first_action - current_action))
 
         # Combine costs with a weighting factor (lambda)
         total_cost = target_error + self.config['control_effort_lambda'] * control_effort
@@ -135,35 +137,36 @@ class MPCController:
         # Convert to tensors
         past_cmas_tensor = torch.tensor(past_cmas_values, dtype=torch.float32).unsqueeze(0).to(self.device)
         past_cpps_tensor = torch.tensor(past_cpps_values, dtype=torch.float32).unsqueeze(0).to(self.device)
+        
+        # Create tensor for current CPPs (for control effort penalty)
+        current_cpps_tensor = torch.tensor(current_cpps_unscaled, dtype=torch.float32).to(self.device)
 
         with torch.no_grad():
             pbar = tqdm(valid_candidates_unscaled, desc="Evaluating MPC Candidates", leave=False)
             for action_seq_unscaled in pbar:
-                # Scale the candidate action sequence for the model
-                #action_seq_scaled = np.zeros_like(action_seq_unscaled)
-                action_seq_scaled = np.zeros((action_seq_unscaled.shape[0], len(self.config['cpp_names_and_soft_sensors'])))
-                # Add soft sensors to the action sequence
-                action_seq_with_sensors = np.zeros((action_seq_unscaled.shape[0], len(self.config[ 'cpp_names_and_soft_sensors'])))
+                # 1. Create the full 5-feature unscaled action sequence
+                action_seq_with_sensors = np.zeros((action_seq_unscaled.shape[0], len(self.config['cpp_names_and_soft_sensors'])))
                 action_seq_with_sensors[:, :action_seq_unscaled.shape[1]] = action_seq_unscaled
+                
+                # Calculate soft sensors
                 spray_rate = action_seq_unscaled[:, 0]
                 carousel_speed = action_seq_unscaled[:, 2]
-                specific_energy = (spray_rate * carousel_speed) / 1000.0
-                froude_number_proxy = (carousel_speed**2) / 9.81
-                action_seq_with_sensors[:, 3] = specific_energy
-                action_seq_with_sensors[:, 4] = froude_number_proxy
-                # Use DataFrame for proper feature names during transform
-                action_df = pd.DataFrame(action_seq_with_sensors, columns=self.config['cpp_names_and_soft_sensors'])
-                for i, name in enumerate(self.config['cpp_names_and_soft_sensors']):
-                    if name in self.scalers:
-                        action_seq_scaled[:, i] = self.scalers[name].transform(action_df[[name]]).flatten()
+                action_seq_with_sensors[:, 3] = (spray_rate * carousel_speed) / 1000.0  # specific_energy
+                action_seq_with_sensors[:, 4] = (carousel_speed**2) / 9.81             # froude_number_proxy
 
-                action_tensor = torch.tensor(action_seq_scaled, dtype=torch.float32).unsqueeze(0).to(self.device)
+                # 2. Scale the full 5-feature sequence
+                action_df_unscaled = pd.DataFrame(action_seq_with_sensors, columns=self.config['cpp_names_and_soft_sensors'])
+                action_df_scaled = pd.DataFrame(index=action_df_unscaled.index)
+                for col in self.config['cpp_names_and_soft_sensors']:
+                    action_df_scaled[col] = self.scalers[col].transform(action_df_unscaled[[col]])
+
+                action_tensor = torch.tensor(action_df_scaled.values, dtype=torch.float32).unsqueeze(0).to(self.device)
 
                 # Get model prediction
                 prediction = self.model(past_cmas_tensor, past_cpps_tensor, action_tensor)
 
                 # Calculate cost
-                cost = self._calculate_cost(prediction, action_tensor, target_cmas_tensor)
+                cost = self._calculate_cost(prediction, action_tensor, target_cmas_tensor, current_cpps_tensor)
 
                 if cost < best_cost:
                     best_cost = cost
