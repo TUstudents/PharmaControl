@@ -68,11 +68,17 @@ mypy robust_mpc/
 
 ## Architecture Overview
 
-### V1 Architecture (Prototype)
-- **Monolithic design** with individual classes
-- **Core files**: `src/plant_simulator.py`, `src/model_architecture.py`, `src/mpc_controller.py`
+### V1 Architecture (Prototype - Recently Enhanced)
+- **Monolithic design** with individual classes and professional documentation
+- **Core files**: 
+  - `src/plant_simulator.py`: High-fidelity granulation simulator with realistic dynamics
+  - `src/model_architecture.py`: Transformer encoder-decoder for sequence prediction
+  - `src/mpc_controller.py`: Discrete optimization MPC with grid search (bugs fixed)
+  - `src/dataset.py`: Time series dataset with sliding window extraction
+  - `src/__init__.py`: Professional package structure with dependency management
 - **Notebooks**: 5-part educational series covering simulation, preprocessing, training, MPC, and analysis
 - **Data flow**: CSV generation → Transformer training → MPC control loop
+- **Recent improvements**: Bug fixes, error handling, comprehensive docstrings
 
 ### V2 Architecture (Industrial)
 - **Modular library design** with `robust_mpc/` package
@@ -118,7 +124,15 @@ mypy robust_mpc/
 
 ### Common Development Workflows
 
-When working with V2 (most common):
+When working with V1 (educational/prototype):
+1. Navigate to `V1/` directory
+2. Setup environment: `source .venv/bin/activate` (virtual environment should exist)
+3. Use Jupyter notebooks for interactive development: `jupyter lab`
+4. Execute notebooks in sequence: 01 → 02 → 03 → 04 → 05
+5. Modify `src/` modules following professional documentation standards
+6. Test changes using notebook examples and validation cells
+
+When working with V2 (production):
 1. Navigate to `V2/` directory
 2. Setup environment: `uv venv .venv && source .venv/bin/activate && uv pip install -e ".[dev,notebooks]"`
 3. Test with `pytest tests/ -v` (environment activated)
@@ -131,6 +145,7 @@ When adding new features:
 2. Add comprehensive tests in `tests/`
 3. Update configuration in `config.yaml` if needed
 4. Validate with performance benchmarks
+5. Follow established docstring standards for all new code
 
 ### Important File Locations
 - **V1 data**: `V1/data/` (pre-processed datasets and trained models)
@@ -139,6 +154,47 @@ When adding new features:
 - **Configuration**: `V2/config.yaml`, `V2/Dockerfile`
 - **Documentation**: Version-specific README files and DESIGN_DOCUMENT.md files
 
+## Documentation Standards
+
+### Professional Docstring Guidelines
+All code modules follow comprehensive docstring standards:
+
+- **Google/Sphinx style formatting** with clear sections for Args, Returns, Raises, Notes
+- **Domain-specific context** integrating pharmaceutical process control terminology
+- **Complete parameter documentation** including tensor shapes, units, and typical ranges
+- **Usage examples** demonstrating practical implementation patterns
+- **Technical implementation details** explaining algorithm choices and performance considerations
+- **Control theory integration** connecting deep learning architecture to MPC requirements
+
+### V1 Documentation Updates (Recently Enhanced)
+- **MPC Controller** (`src/mpc_controller.py`): Comprehensive discrete optimization documentation
+- **Plant Simulator** (`src/plant_simulator.py`): High-fidelity process dynamics with engineering context
+- **Model Architecture** (`src/model_architecture.py`): Transformer implementation for pharmaceutical applications
+- **Dataset Module** (`src/dataset.py`): Time series extraction for sequence-to-sequence learning
+- **Package Init** (`src/__init__.py`): Professional package structure with dependency management
+
+### Code Quality Improvements
+Recent enhancements to V1 codebase include:
+
+#### Critical Bug Fixes
+- **Scaling inconsistency** in MPC cost calculation: Fixed comparison of scaled vs unscaled tensors
+- **Hard-coded array indexing**: Replaced with dynamic configuration-based indexing for soft sensors
+- **Unhandled None cases**: Added robust fallback when optimization fails to find valid solutions
+- **Device placement errors**: Fixed GPU/CPU tensor device mismatches
+
+#### Enhanced Error Handling
+- **Constraint validation**: Graceful handling of infeasible control candidates
+- **Configuration validation**: Clear error messages for missing process variables
+- **Fallback mechanisms**: Safe operation when optimization encounters edge cases
+- **Dependency checking**: Version compatibility validation with informative warnings
+
+#### Professional Documentation
+- **Complete API documentation**: All classes and methods with comprehensive docstrings
+- **Domain expertise**: Pharmaceutical process control terminology and context
+- **Usage examples**: Practical code snippets demonstrating typical workflows
+- **Technical implementation details**: Algorithm explanations and performance considerations
+- **Type safety**: Tensor shape specifications and validation throughout
+
 ## Development Philosophy
 
 - **Safety first**: All control systems include constraint handling and safety limits
@@ -146,4 +202,5 @@ When adding new features:
 - **Industrial readiness**: Code follows production patterns with proper error handling
 - **Educational value**: Clear documentation and progressive learning materials
 - **Reproducible research**: Fixed random seeds and deterministic behavior where possible
-- "gitAttribution": false, "includeCoAuthoredBy": false
+- **Professional documentation**: Comprehensive docstrings following industry standards
+- **Code quality**: Rigorous testing, error handling, and type safety practices

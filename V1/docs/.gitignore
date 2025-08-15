@@ -1,0 +1,14 @@
+# Sphinx build artifacts
+_build/
+.doctrees/
+
+# Generated API documentation
+api/generated/
+
+# IDE files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
