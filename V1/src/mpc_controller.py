@@ -6,11 +6,49 @@ from tqdm.auto import tqdm
 from typing import Dict, List, Tuple
 
 class MPCController:
-    """
-    Implements a Model Predictive Controller that uses a trained PyTorch model
-    to find optimal control actions while respecting process constraints.
+    """Model Predictive Controller for pharmaceutical continuous granulation processes.
+    
+    This controller implements a discrete optimization-based MPC that uses a trained
+    neural network predictor to find optimal control actions while respecting 
+    operational constraints and minimizing tracking error.
+    
+    The controller performs exhaustive grid search over discretized control changes,
+    evaluates each candidate using the predictive model, and selects the action
+    that minimizes a weighted combination of target tracking error and control effort.
+    
+    Attributes:
+        model: Trained PyTorch neural network for process prediction
+        config: Configuration dictionary containing control parameters
+        constraints: Process constraint definitions for each control variable
+        scalers: Data scalers used during model training for consistent preprocessing
+        device: PyTorch device (CPU/GPU) for model execution
+    
+    Example:
+        >>> controller = MPCController(model, config, constraints, scalers)
+        >>> optimal_action = controller.suggest_action(past_cmas, past_cpps, targets)
     """
     def __init__(self, model, config, constraints, scalers):
+        """Initialize the MPC controller with model and process configuration.
+        
+        Args:
+            model: Trained PyTorch neural network model for process prediction.
+                Must implement forward(past_cmas, past_cpps, future_cpps) -> predictions
+            config: Configuration dictionary containing:
+                - 'cpp_names': List of critical process parameter names
+                - 'cma_names': List of critical material attribute names  
+                - 'cpp_names_and_soft_sensors': Extended CPP list including soft sensors
+                - 'horizon': Prediction and control horizon length
+                - 'discretization_steps': Number of discrete control options per variable
+                - 'control_effort_lambda': Weight for control effort penalty term
+            constraints: Constraint dictionary with structure:
+                {variable_name: {'min_val': float, 'max_val': float, 'max_change_per_step': float}}
+            scalers: Dictionary of fitted sklearn scalers for data preprocessing:
+                {variable_name: fitted_scaler_object}
+        
+        Raises:
+            ValueError: If required configuration keys are missing
+            RuntimeError: If model cannot be moved to available device
+        """
         self.model = model
         self.config = config
         self.constraints = constraints
@@ -20,7 +58,26 @@ class MPCController:
         self.model.eval()
 
     def _generate_control_lattice(self, current_cpps):
-        """Creates a grid of possible future control sequences."""
+        """Generate discrete control action candidates for MPC optimization.
+        
+        Creates a grid of possible control sequences by discretizing the allowed
+        change range for each control variable and generating all combinations.
+        Each sequence assumes constant control action over the prediction horizon.
+        
+        Args:
+            current_cpps: Current values of critical process parameters as numpy array.
+                Shape: (num_cpps,)
+        
+        Returns:
+            List of candidate control sequences, each as numpy array of shape
+            (horizon, num_cpps). Each sequence represents constant control values
+            applied over the entire prediction horizon.
+        
+        Notes:
+            The discretization creates n^k candidates where n is discretization_steps
+            and k is the number of control variables. This can become computationally
+            expensive for high-dimensional control spaces.
+        """
         cpp_names = self.config['cpp_names']
         discretization = self.config['discretization_steps']
 
@@ -48,7 +105,25 @@ class MPCController:
         return candidate_sequences
 
     def _filter_by_constraints(self, candidates, current_cpps):
-        """Removes candidate sequences that violate process constraints."""
+        """Filter control candidates to ensure operational constraint compliance.
+        
+        Validates each candidate control sequence against defined operational limits
+        including minimum and maximum allowed values for each control variable.
+        
+        Args:
+            candidates: List of candidate control sequences, each as numpy array
+                of shape (horizon, num_cpps)
+            current_cpps: Current control variable values as numpy array.
+                Shape: (num_cpps,). Used for reference but not directly in filtering.
+        
+        Returns:
+            List of valid candidate control sequences that satisfy all operational
+            constraints. May be empty if no candidates satisfy constraints.
+        
+        Notes:
+            Only checks the first time step of each sequence since all sequences
+            assume constant control values. This assumes constraints are time-invariant.
+        """
         valid_candidates = []
         cpp_names = self.config['cpp_names']
 
@@ -68,7 +143,29 @@ class MPCController:
         return valid_candidates
 
     def _calculate_cost(self, prediction, action, target_cmas, current_action_scaled):
-        """Calculates the cost of a predicted trajectory."""
+        """Calculate the MPC objective function for a candidate control sequence.
+        
+        Computes a weighted combination of target tracking error and control effort
+        penalty to evaluate the quality of a proposed control action.
+        
+        Args:
+            prediction: Model prediction tensor of shape (batch, horizon, num_cmas).
+                Contains predicted critical material attributes over the horizon.
+            action: Proposed control action tensor of shape (batch, horizon, num_features).
+                Contains scaled control variables and soft sensors.
+            target_cmas: Target setpoint tensor of shape (batch, horizon, num_cmas).
+                Desired values for critical material attributes.
+            current_action_scaled: Current control action as scaled tensor of shape (num_cpps,).
+                Used for calculating control effort penalty.
+        
+        Returns:
+            Scalar cost value as float. Lower values indicate better performance.
+            Combines L1 tracking error with weighted control effort penalty.
+        
+        Notes:
+            Uses L1 (MAE) loss for tracking error as it's robust to outliers.
+            Control effort penalizes large changes from current operating point.
+        """
         # Ensure target is on the correct device
         target_cmas = target_cmas.to(self.device)
         current_action_scaled = current_action_scaled.to(self.device)
@@ -87,16 +184,46 @@ class MPCController:
         return total_cost.item()
 
     def suggest_action(self, past_cmas_unscaled: pd.DataFrame, past_cpps_unscaled: pd.DataFrame, target_cmas_unscaled: np.ndarray) -> np.ndarray:
-        """
-        Find the optimal single control action using Model Predictive Control.
+        """Compute optimal control action using Model Predictive Control optimization.
+        
+        Performs discrete MPC optimization by:
+        1. Generating candidate control sequences through grid discretization
+        2. Filtering candidates to ensure constraint satisfaction
+        3. Evaluating each candidate using the neural network predictor
+        4. Selecting the action that minimizes the weighted cost function
+        
+        The optimization uses exhaustive search over a discretized control space,
+        making it computationally expensive but guaranteeing the global optimum
+        within the discretized domain.
         
         Args:
-            past_cmas_unscaled: DataFrame with unscaled CMA history, columns must match config['cma_names']
-            past_cpps_unscaled: DataFrame with unscaled CPP history, columns must match config['cpp_names_and_soft_sensors'] 
-            target_cmas_unscaled: Array of shape (horizon, num_cmas) with unscaled target values
-            
+            past_cmas_unscaled: Historical critical material attribute data as DataFrame.
+                Must contain columns matching config['cma_names']. Data should be
+                in original engineering units (unscaled). Shape: (lookback, num_cmas)
+            past_cpps_unscaled: Historical critical process parameter data as DataFrame.
+                Must contain columns matching config['cpp_names_and_soft_sensors'].
+                Includes both control variables and calculated soft sensors.
+                Data in original engineering units. Shape: (lookback, num_features)
+            target_cmas_unscaled: Target setpoints for critical material attributes.
+                Array of shape (horizon, num_cmas) in original engineering units.
+                Typically constant setpoints repeated over the prediction horizon.
+        
         Returns:
-            Array of shape (num_base_cpps,) with optimal unscaled CPP values
+            Optimal control action as numpy array of shape (num_base_cpps,).
+            Contains unscaled values for the base critical process parameters
+            (excluding soft sensors). Values are clipped to operational constraints.
+        
+        Raises:
+            ValueError: If required variables are missing from configuration or if
+                input data shapes are incompatible with model requirements.
+            RuntimeError: If model prediction fails or if all candidates produce
+                invalid costs.
+        
+        Notes:
+            - Computational complexity scales as O(n^k) where n is discretization
+              steps and k is number of control variables
+            - Returns current control values as fallback if optimization fails
+            - Soft sensors (derived variables) are automatically calculated
         """
         # Extract current CPPs directly from unscaled data
         current_cpps_unscaled = past_cpps_unscaled.iloc[-1][self.config['cpp_names']].values
