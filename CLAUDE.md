@@ -133,8 +133,8 @@ When working with V1 (educational/prototype):
 6. Test changes using notebook examples and validation cells
 
 When working with V2 (production):
-1. Navigate to `V2/` directory
-2. Setup environment: `uv venv .venv && source .venv/bin/activate && uv pip install -e ".[dev,notebooks]"`
+1. Navigate to top directory. Add `V2/` subdirectory to commands
+2. Setup environment: `source .venv/bin/activate` (virtual environment should exist)
 3. Test with `pytest tests/ -v` (environment activated)
 4. Run controller with `python run_controller.py` (environment activated)
 5. Modify `robust_mpc/` modules as needed
