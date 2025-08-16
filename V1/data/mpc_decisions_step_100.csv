@@ -1,0 +1,2 @@
+time,old_cpps,new_cpps,current_cmas
+100,"{'spray_rate': 100.0, 'air_flow': 450.0, 'carousel_speed': 25.0}","{'spray_rate': np.float64(90.0), 'air_flow': np.float64(475.0), 'carousel_speed': np.float64(25.0)}","{'d50': np.float64(407.4713632127399), 'lod': np.float64(2.2337043010996083)}"

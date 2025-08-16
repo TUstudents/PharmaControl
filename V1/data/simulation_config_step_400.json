@@ -1,0 +1,16 @@
+{
+  "step": 400,
+  "total_steps": 500,
+  "stabilization_steps": 100,
+  "mpc_decision_interval": 5,
+  "lookback_steps": 36,
+  "initial_cpps": {
+    "spray_rate": 100.0,
+    "air_flow": 450.0,
+    "carousel_speed": 25.0
+  },
+  "target_cmas": {
+    "d50": 380.0,
+    "lod": 1.8
+  }
+}
