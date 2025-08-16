@@ -1,4 +1,5 @@
 import numpy as np
+from typing import Dict, Optional, Union
 
 class AdvancedPlantSimulator:
     """High-fidelity simulator for pharmaceutical continuous granulation processes.
@@ -27,7 +28,22 @@ class AdvancedPlantSimulator:
         >>> new_state = simulator.step(cpps)
         >>> print(f"Particle size: {new_state['d50']:.1f} μm")
     """
-    def __init__(self, initial_state=None):
+    # Process configuration constants
+    DEFAULT_STATE = {'d50': 400.0, 'lod': 1.5}
+    D50_LAG_BUFFER_SIZE = 15  # Transport delay for particle size (seconds)
+    LOD_LAG_BUFFER_SIZE = 25  # Transport delay for moisture (seconds)
+    FILTER_BLOCKAGE_RATE = 0.0005  # Filter degradation per time step
+    D50_NOISE_STD = 5.0  # Standard deviation for particle size noise (μm)
+    LOD_NOISE_STD = 0.05  # Standard deviation for moisture noise (%)
+    
+    # Process parameter ranges for validation
+    CPP_RANGES = {
+        'spray_rate': (80.0, 180.0),  # g/min
+        'air_flow': (400.0, 700.0),   # m³/h
+        'carousel_speed': (20.0, 40.0)  # rpm
+    }
+    
+    def __init__(self, initial_state: Optional[Dict[str, float]] = None, random_seed: Optional[int] = None):
         """Initialize the granulation process simulator with specified or default conditions.
         
         Args:
@@ -41,21 +57,30 @@ class AdvancedPlantSimulator:
             - Transport delays are modeled using circular buffers initialized to steady-state
             - Filter blockage disturbance starts at zero (clean filter condition)
             - Buffer sizes (15 for d50, 25 for lod) represent realistic transport delays
+        
+        Args:
+            initial_state: Optional dictionary specifying initial process conditions.
+                Must contain keys 'd50' and 'lod' with numeric values.
+                If None, uses default steady-state values.
+            random_seed: Optional integer seed for reproducible random number generation.
+                If None, uses system time for non-deterministic behavior.
         """
+        # Set random seed for reproducible behavior if specified
+        if random_seed is not None:
+            np.random.seed(random_seed)
+            
+        # Initialize process state
         if initial_state is None:
-            self.state = {
-                'd50': 400.0,  # Median particle size in micrometers
-                'lod': 1.5,    # Loss on drying in percent
-            }
+            self.state = self.DEFAULT_STATE.copy()
         else:
-            self.state = initial_state
+            self._validate_state(initial_state)
+            self.state = initial_state.copy()
 
-        # --- Internal process variables ---
-        # Lag buffers to simulate material transport time
-        self.d50_lag_buffer = np.full(15, self.state['d50'])
-        self.lod_lag_buffer = np.full(25, self.state['lod'])
+        # Initialize lag buffers with steady-state values
+        self.d50_lag_buffer = np.full(self.D50_LAG_BUFFER_SIZE, self.state['d50'])
+        self.lod_lag_buffer = np.full(self.LOD_LAG_BUFFER_SIZE, self.state['lod'])
 
-        # Disturbance variable: filter blockage (starts at 0, slowly increases)
+        # Initialize disturbance (clean filter condition)
         self.filter_blockage = 0.0
 
     def _update_disturbance(self):
@@ -71,10 +96,51 @@ class AdvancedPlantSimulator:
             - This creates a slow drift that challenges steady-state control
             - In practice, filters would be cleaned/replaced before significant impact
         """
-        # The filter gets slightly more clogged each time step, reducing drying efficiency
-        self.filter_blockage += 0.0005 
+        self.filter_blockage += self.FILTER_BLOCKAGE_RATE 
 
-    def step(self, cpps):
+    def _validate_state(self, state: Dict[str, float]) -> None:
+        """Validate process state dictionary.
+        
+        Args:
+            state: Process state dictionary to validate
+            
+        Raises:
+            ValueError: If state is invalid
+        """
+        required_keys = {'d50', 'lod'}
+        if not isinstance(state, dict):
+            raise ValueError("State must be a dictionary")
+        if not required_keys.issubset(state.keys()):
+            missing = required_keys - state.keys()
+            raise ValueError(f"State missing required keys: {missing}")
+        if not all(isinstance(v, (int, float)) for v in state.values()):
+            raise ValueError("All state values must be numeric")
+    
+    def _validate_cpps(self, cpps: Dict[str, float]) -> None:
+        """Validate critical process parameters.
+        
+        Args:
+            cpps: Dictionary of process parameters to validate
+            
+        Raises:
+            ValueError: If CPPs are invalid
+        """
+        required_keys = set(self.CPP_RANGES.keys())
+        if not isinstance(cpps, dict):
+            raise ValueError("CPPs must be a dictionary")
+        if not required_keys.issubset(cpps.keys()):
+            missing = required_keys - cpps.keys()
+            raise ValueError(f"CPPs missing required keys: {missing}")
+        
+        for param, value in cpps.items():
+            if param in self.CPP_RANGES:
+                min_val, max_val = self.CPP_RANGES[param]
+                if not isinstance(value, (int, float)):
+                    raise ValueError(f"{param} must be numeric, got {type(value)}")
+                if not (min_val <= value <= max_val):
+                    raise ValueError(f"{param}={value} outside valid range [{min_val}, {max_val}]")
+    
+    def step(self, cpps: Dict[str, float]) -> Dict[str, float]:
         """Execute one simulation time step with specified control inputs.
         
         Advances the granulation process simulation by one discrete time step,
@@ -111,6 +177,9 @@ class AdvancedPlantSimulator:
             - Gaussian noise: σ=5 μm for d50, σ=0.05% for lod
             - Disturbance accumulates at 0.0005 per step affecting moisture removal
         """
+        # Validate inputs
+        self._validate_cpps(cpps)
+        
         # Update the disturbance first
         self._update_disturbance()
 
@@ -125,7 +194,7 @@ class AdvancedPlantSimulator:
         self.d50_lag_buffer = np.roll(self.d50_lag_buffer, -1)
         self.d50_lag_buffer[-1] = d50_target
         # Add Gaussian noise to simulate measurement error
-        current_d50 = np.mean(self.d50_lag_buffer) + np.random.normal(0, 5) 
+        current_d50 = np.mean(self.d50_lag_buffer) + np.random.normal(0, self.D50_NOISE_STD) 
 
         # === LOD (Moisture) Dynamics ===
         # Effect of air flow is dominant for drying
@@ -145,7 +214,7 @@ class AdvancedPlantSimulator:
         self.lod_lag_buffer = np.roll(self.lod_lag_buffer, -1)
         self.lod_lag_buffer[-1] = lod_target
         # Add noise
-        current_lod = np.mean(self.lod_lag_buffer) + np.random.normal(0, 0.05)
+        current_lod = np.mean(self.lod_lag_buffer) + np.random.normal(0, self.LOD_NOISE_STD)
 
         # Update the state and return
         self.state = {'d50': max(50, current_d50), 'lod': max(0.1, current_lod)}
