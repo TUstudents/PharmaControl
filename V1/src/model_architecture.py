@@ -34,23 +34,27 @@ class PositionalEncoding(nn.Module):
 
         position = torch.arange(max_len).unsqueeze(1)
         div_term = torch.exp(torch.arange(0, d_model, 2) * (-math.log(10000.0) / d_model))
-        pe = torch.zeros(max_len, 1, d_model)
-        pe[:, 0, 0::2] = torch.sin(position * div_term)
-        pe[:, 0, 1::2] = torch.cos(position * div_term)
+        # FIXED: Create positional encoding for batch_first=True format
+        pe = torch.zeros(1, max_len, d_model)  # Shape: (1, max_len, d_model) for batch_first=True
+        pe[0, :, 0::2] = torch.sin(position * div_term)
+        pe[0, :, 1::2] = torch.cos(position * div_term)
         self.register_buffer('pe', pe)
 
     def forward(self, x):
         """Apply positional encoding to input embeddings.
         
         Args:
-            x: Input tensor of shape (seq_len, batch_size, d_model) containing
+            x: Input tensor of shape (batch_size, seq_len, d_model) containing
                embedded sequence data (e.g., process variables or control actions)
+               Note: batch_first=True format as used by the transformer
         
         Returns:
             Tensor of same shape as input with positional information added
             and dropout applied for regularization during training
         """
-        x = x + self.pe[:x.size(0)]
+        # FIXED: Correct indexing for batch_first=True format
+        # x.size(1) is seq_len when batch_first=True
+        x = x + self.pe[:, :x.size(1)]
         return self.dropout(x)
 
 class GranulationPredictor(nn.Module):

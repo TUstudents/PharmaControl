@@ -52,18 +52,13 @@ class AdvancedPlantSimulator:
                 If None, uses default steady-state values:
                 - d50: 400.0 μm (typical target particle size)
                 - lod: 1.5% (typical target moisture content)
+            random_seed: Optional integer seed for reproducible random number generation.
+                If None, uses system time for non-deterministic behavior.
         
         Notes:
             - Transport delays are modeled using circular buffers initialized to steady-state
             - Filter blockage disturbance starts at zero (clean filter condition)
             - Buffer sizes (15 for d50, 25 for lod) represent realistic transport delays
-        
-        Args:
-            initial_state: Optional dictionary specifying initial process conditions.
-                Must contain keys 'd50' and 'lod' with numeric values.
-                If None, uses default steady-state values.
-            random_seed: Optional integer seed for reproducible random number generation.
-                If None, uses system time for non-deterministic behavior.
         """
         # Set random seed for reproducible behavior if specified
         if random_seed is not None:
