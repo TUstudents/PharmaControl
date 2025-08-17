@@ -1,6 +1,7 @@
 import random
 import numpy as np
 from deap import base, creator, tools, algorithms
+from typing import Dict, List, Tuple, Callable
 
 class GeneticOptimizer:
     """Genetic Algorithm optimizer for complex pharmaceutical process control optimization.
@@ -91,6 +92,12 @@ class GeneticOptimizer:
         self.param_bounds = param_bounds # List of (min, max) for each gene
         self.config = config
         self.n_params = len(param_bounds) # Number of genes in an individual
+        
+        # Validate configuration
+        self._validate_config()
+        
+        # Clean up any existing DEAP creators to prevent conflicts
+        self._cleanup_deap_creators()
 
         # --- DEAP Toolbox Setup ---
         # 1. Define the fitness objective (minimizing a single value)
@@ -109,8 +116,8 @@ class GeneticOptimizer:
 
         # 5. Register the evolutionary operators
         self.toolbox.register("evaluate", self._evaluate)
-        self.toolbox.register("mate", tools.cxTwoPoint)
-        self.toolbox.register("mutate", tools.mutGaussian, mu=0, sigma=0.2, indpb=0.1)
+        self.toolbox.register("mate", self._mate_with_bounds)
+        self.toolbox.register("mutate", self._mutate_with_bounds)
         self.toolbox.register("select", tools.selTournament, tournsize=3)
 
     def _create_individual(self):
@@ -128,6 +135,37 @@ class GeneticOptimizer:
             low, high = self.param_bounds[i]
             individual.append(random.uniform(low, high))
         return individual
+    
+    def _validate_config(self):
+        """Validate configuration parameters for consistency."""
+        required_keys = ['horizon', 'num_cpps', 'population_size', 'num_generations']
+        for key in required_keys:
+            if key not in self.config:
+                raise ValueError(f"Missing required config key: {key}")
+        
+        expected_params = self.config['horizon'] * self.config['num_cpps']
+        if len(self.param_bounds) != expected_params:
+            raise ValueError(f"Parameter bounds length {len(self.param_bounds)} != expected {expected_params}")
+    
+    def _cleanup_deap_creators(self):
+        """Clean up existing DEAP creator classes to prevent conflicts."""
+        if hasattr(creator, 'FitnessMin'):
+            del creator.FitnessMin
+        if hasattr(creator, 'Individual'):
+            del creator.Individual
+    
+    def _mate_with_bounds(self, ind1, ind2):
+        """Crossover with bound repair."""
+        tools.cxTwoPoint(ind1, ind2)
+        self._check_bounds(ind1)
+        self._check_bounds(ind2)
+        return ind1, ind2
+    
+    def _mutate_with_bounds(self, individual):
+        """Mutation with bound repair."""
+        tools.mutGaussian(individual, mu=0, sigma=0.2, indpb=0.1)
+        self._check_bounds(individual)
+        return individual,
 
     def _evaluate(self, individual):
         """Evaluate individual fitness using MPC objective function.
@@ -222,11 +260,15 @@ class GeneticOptimizer:
         hof = tools.HallOfFame(1)
 
         # Run the evolution
+        # Handle different config key names for compatibility
+        crossover_prob = self.config.get('crossover_prob', self.config.get('cx_prob', 0.7))
+        mutation_prob = self.config.get('mutation_prob', self.config.get('mut_prob', 0.2))
+        
         algorithms.eaSimple(
             pop,
             self.toolbox,
-            cxpb=self.config['crossover_prob'],
-            mutpb=self.config['mutation_prob'],
+            cxpb=crossover_prob,
+            mutpb=mutation_prob,
             ngen=self.config['num_generations'],
             halloffame=hof,
             verbose=False
