@@ -140,32 +140,70 @@ class ProbabilisticTransformer(nn.Module):
         output = self.transformer(src, tgt, tgt_mask=tgt_mask)
         return self.output_linear(output)
 
-    def predict_distribution(self, past_cmas, past_cpps, future_cpps, n_samples=30):
+    def _activate_mc_dropout(self):
+        """Activates only dropout layers for Monte Carlo inference while keeping other layers in eval mode.
+        
+        This method provides robust Monte Carlo dropout by selectively enabling only the dropout
+        layers during inference, ensuring that BatchNorm and other layers remain in evaluation
+        mode for consistent behavior.
+        
+        Notes:
+            - Searches for all Dropout and Dropout1d/2d/3d layers in the model
+            - Sets only these layers to training mode for stochastic behavior
+            - Other layers (BatchNorm, LayerNorm, etc.) remain in evaluation mode
+            - Essential for proper uncertainty quantification in probabilistic models
         """
-        Performs probabilistic forecasting using Monte Carlo Dropout.
+        for module in self.modules():
+            if module.__class__.__name__.startswith('Dropout'):
+                module.train()
 
+    def predict_distribution(self, past_cmas, past_cpps, future_cpps, n_samples=30):
+        """Performs probabilistic forecasting using robust Monte Carlo Dropout.
+        
+        This method implements uncertainty quantification through Monte Carlo sampling
+        with proper dropout activation. Unlike naive approaches that use self.train(),
+        this method selectively activates only dropout layers while keeping other
+        layers (BatchNorm, LayerNorm) in evaluation mode for consistent inference.
+        
+        Mathematical Framework:
+            μ(x) = E[f(x, θ)] ≈ (1/N) Σ f(x, θᵢ)  where θᵢ ~ Dropout
+            σ²(x) = Var[f(x, θ)] ≈ (1/N) Σ [f(x, θᵢ) - μ(x)]²
+        
+        Args:
+            past_cmas (torch.Tensor): Historical CMA observations of shape (batch_size, lookback, cma_features)
+            past_cpps (torch.Tensor): Historical CPP observations of shape (batch_size, lookback, cpp_features)  
+            future_cpps (torch.Tensor): Planned CPP sequences of shape (batch_size, horizon, cpp_features)
+            n_samples (int, optional): Number of Monte Carlo samples for uncertainty estimation. Default: 30
+                Higher values provide better uncertainty estimates but increase computation time.
+        
         Returns:
-            tuple: (mean_prediction, std_prediction)
+            tuple: (mean_prediction, std_prediction) where:
+                - mean_prediction (torch.Tensor): Expected prediction of shape (batch_size, horizon, cma_features)
+                - std_prediction (torch.Tensor): Prediction uncertainty (std dev) of same shape
+        
+        Notes:
+            - Uses robust Monte Carlo dropout that preserves BatchNorm behavior
+            - All operations performed with torch.no_grad() for efficiency
+            - Model automatically returned to evaluation mode after sampling
+            - Uncertainty estimates are calibrated through proper dropout sampling
         """
-        # Set to evaluation mode BUT keep dropout layers active.
-        # This is done by activating training mode only for dropout layers.
-        self.train()
-        # An alternative, cleaner way is to create a custom method to only turn on dropout.
-        # For simplicity, we use train() as it activates dropout.
+        # Set model to evaluation mode, then selectively activate only dropout layers
+        self.eval()
+        self._activate_mc_dropout()
 
         with torch.no_grad():
-            # Collect multiple predictions
+            # Collect multiple predictions with stochastic dropout
             predictions = [self.forward(past_cmas, past_cpps, future_cpps) for _ in range(n_samples)]
 
-            # Stack predictions into a new dimension for calculation
+            # Stack predictions into a new dimension for statistical calculation
             # Shape: (n_samples, batch_size, horizon, features)
             predictions_stacked = torch.stack(predictions)
 
-            # Calculate mean and standard deviation across the samples dimension
+            # Calculate mean and standard deviation across the Monte Carlo samples
             mean_prediction = torch.mean(predictions_stacked, dim=0)
             std_prediction = torch.std(predictions_stacked, dim=0)
 
-        # Return model to standard evaluation mode
+        # Ensure all layers are in evaluation mode for subsequent inference
         self.eval()
 
         return mean_prediction, std_prediction
