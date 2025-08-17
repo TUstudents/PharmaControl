@@ -348,3 +348,10 @@ Recent enhancements to V1 codebase include:
 - **Technical focus**: Prioritize technical accuracy over descriptive language
 - **Minimal preamble**: Avoid unnecessary introductions or conclusions
 - **Actionable content**: Focus on what needs to be done
+
+### Git Commit Messages
+- **Short, technical summaries**: Max 50 characters for subject line
+- **Concise descriptions**: Brief bullet points for multi-line commits
+- **Professional tone**: Avoid flowery language or excessive detail
+- **Action-oriented**: Start with imperative verbs (Fix, Add, Remove, Update)
+- **Technical standard**: Follow conventional commit format when applicable
