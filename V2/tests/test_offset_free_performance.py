@@ -35,7 +35,8 @@ def test_offset_free_performance_comparison():
         'lookback': 15,
         'integral_gain': 0.2,  # Higher gain for faster disturbance rejection
         'mc_samples': 30,
-        'risk_beta': 1.5
+        'risk_beta': 1.5,
+        'verbose': False  # Quiet mode for tests
     }
     
     # Create realistic fitted scalers
@@ -239,7 +240,7 @@ def test_offset_scaling_mathematical_verification():
     scalers = {'d50': d50_scaler, 'lod': lod_scaler}
     
     # Create minimal controller for testing
-    config = {'cma_names': ['d50', 'lod']}
+    config = {'cma_names': ['d50', 'lod'], 'verbose': False}
     
     class MockModel:
         def to(self, device): return self

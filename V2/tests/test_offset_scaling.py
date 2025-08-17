@@ -61,7 +61,8 @@ class TestOffsetScaling:
                 'num_generations': 15,
                 'cx_prob': 0.7,
                 'mut_prob': 0.2
-            }
+            },
+            'verbose': False  # Quiet mode for tests
         }
     
     @pytest.fixture

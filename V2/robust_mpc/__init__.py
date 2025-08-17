@@ -196,7 +196,8 @@ DEFAULT_CONFIG = {
         'prediction_horizon': 72,
         'control_horizon': 36,
         'integral_gain': 0.1,
-        'control_effort_weight': 0.05
+        'control_effort_weight': 0.05,
+        'verbose': False  # Production-ready default
     }
 }
 

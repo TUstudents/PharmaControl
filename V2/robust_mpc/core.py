@@ -67,6 +67,7 @@ class RobustMPCController:
             - 'integral_gain': Adaptation rate for disturbance estimation
             - 'mc_samples': Number of Monte Carlo samples for uncertainty quantification
             - 'risk_aversion': Risk penalty weight (higher = more conservative)
+            - 'verbose': Enable verbose validation logging (default: False)
         scalers (dict): Data scaling transformations for consistent preprocessing
             Should contain fitted scalers for all process variables
     
@@ -478,12 +479,13 @@ class RobustMPCController:
             if not hasattr(scaler, 'transform'):
                 raise ValueError(f"Scaler for '{scaler_name}' missing 'transform' method")
                 
-        print(f"✓ RobustMPCController validation passed")
-        print(f"  - CMAs: {self.config['cma_names']}")
-        print(f"  - CPPs: {self.config['cpp_names']}")  
-        print(f"  - Full CPPs: {self.config['cpp_full_names']}")
-        print(f"  - Horizon: {self.config['horizon']}, Lookback: {self.config['lookback']}")
-        print(f"  - Available scalers: {len(self.scalers)}")
+        if self.config.get('verbose', False):
+            print(f"✓ RobustMPCController validation passed")
+            print(f"  - CMAs: {self.config['cma_names']}")
+            print(f"  - CPPs: {self.config['cpp_names']}")  
+            print(f"  - Full CPPs: {self.config['cpp_full_names']}")
+            print(f"  - Horizon: {self.config['horizon']}, Lookback: {self.config['lookback']}")
+            print(f"  - Available scalers: {len(self.scalers)}")
 
     def _validate_scaling_inputs(self, data, expected_shape_desc, method_name):
         """Validate inputs to scaling methods."""
@@ -496,4 +498,5 @@ class RobustMPCController:
         if not np.all(np.isfinite(data)):
             raise ValueError(f"{method_name}: Input contains non-finite values (NaN/inf)")
             
-        print(f"✓ {method_name} input validation passed: shape {data.shape} ({expected_shape_desc})")
+        if self.config.get('verbose', False):
+            print(f"✓ {method_name} input validation passed: shape {data.shape} ({expected_shape_desc})")
