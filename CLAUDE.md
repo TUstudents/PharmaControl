@@ -333,3 +333,18 @@ Recent enhancements to V1 codebase include:
 - **Reproducible research**: Fixed random seeds and deterministic behavior where possible
 - **Professional documentation**: Comprehensive docstrings following industry standards
 - **Code quality**: Rigorous testing, error handling, and type safety practices
+
+## Style Guide
+
+### Code Output and Logging
+- **Concise responses**: Keep explanations brief and technical
+- **No decorative symbols**: Avoid excessive use of ✅🎯📊🔧 in production code
+- **Professional logging**: Use clear, parseable log messages
+- **Verbose flag**: Use `config['verbose']` to control detailed logging
+- **Production-ready**: Default to minimal output suitable for enterprise deployment
+
+### Response Style
+- **Direct answers**: Address the specific question without elaboration
+- **Technical focus**: Prioritize technical accuracy over descriptive language
+- **Minimal preamble**: Avoid unnecessary introductions or conclusions
+- **Actionable content**: Focus on what needs to be done
