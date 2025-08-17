@@ -40,9 +40,72 @@ from .estimators import (
     ProcessBiasKalmanEstimator,
     MeasurementBiasKalmanEstimator
 )
-from .models import ProbabilisticTransformer  # ✅ Available as of V2-2
-from .optimizers import GeneticOptimizer      # ✅ Available as of V2-3
-from .core import RobustMPCController         # ✅ Available as of V2-4
+# Lazy imports for PyTorch-dependent modules to avoid circular import issues
+import importlib
+import sys
+
+# Global variables to cache imported classes
+_ProbabilisticTransformer = None
+_GeneticOptimizer = None  
+_RobustMPCController = None
+
+def _get_ProbabilisticTransformer():
+    """Get ProbabilisticTransformer class with lazy loading."""
+    global _ProbabilisticTransformer
+    if _ProbabilisticTransformer is None:
+        try:
+            from .models import ProbabilisticTransformer
+            _ProbabilisticTransformer = ProbabilisticTransformer
+        except ImportError as e:
+            # If there's still a circular import, try absolute import
+            try:
+                models_module = importlib.import_module('V2.robust_mpc.models')
+                _ProbabilisticTransformer = models_module.ProbabilisticTransformer
+            except ImportError:
+                raise ImportError(f"Failed to import ProbabilisticTransformer: {e}")
+    return _ProbabilisticTransformer
+
+def _get_GeneticOptimizer():
+    """Get GeneticOptimizer class with lazy loading."""
+    global _GeneticOptimizer
+    if _GeneticOptimizer is None:
+        try:
+            from .optimizers import GeneticOptimizer
+            _GeneticOptimizer = GeneticOptimizer
+        except ImportError as e:
+            try:
+                optimizers_module = importlib.import_module('V2.robust_mpc.optimizers')
+                _GeneticOptimizer = optimizers_module.GeneticOptimizer
+            except ImportError:
+                raise ImportError(f"Failed to import GeneticOptimizer: {e}")
+    return _GeneticOptimizer
+
+def _get_RobustMPCController():
+    """Get RobustMPCController class with lazy loading."""
+    global _RobustMPCController
+    if _RobustMPCController is None:
+        try:
+            from .core import RobustMPCController
+            _RobustMPCController = RobustMPCController
+        except ImportError as e:
+            try:
+                core_module = importlib.import_module('V2.robust_mpc.core')
+                _RobustMPCController = core_module.RobustMPCController
+            except ImportError:
+                raise ImportError(f"Failed to import RobustMPCController: {e}")
+    return _RobustMPCController
+
+# Create properties that lazily load the classes
+def __getattr__(name):
+    """Module-level __getattr__ for lazy loading."""
+    if name == 'ProbabilisticTransformer':
+        return _get_ProbabilisticTransformer()
+    elif name == 'GeneticOptimizer':
+        return _get_GeneticOptimizer()
+    elif name == 'RobustMPCController':
+        return _get_RobustMPCController()
+    else:
+        raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
 
 # Define what gets imported with "from robust_mpc import *"
 __all__ = [
