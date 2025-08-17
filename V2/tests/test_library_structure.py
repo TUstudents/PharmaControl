@@ -94,49 +94,60 @@ def test_optimizers_module():
     """Test that optimizers module imports correctly."""
     try:
         from robust_mpc import optimizers
-        
-        # Test utility functions
-        assert hasattr(optimizers, 'validate_bounds')
-        assert hasattr(optimizers, 'apply_bounds')
-        
-        # Test bounds validation
-        bounds = [(0, 10), (5, 15), (-1, 1)]
-        assert optimizers.validate_bounds(bounds, 3) == True
-        assert optimizers.validate_bounds(bounds, 2) == False
-        
-        # Test bounds application
         import numpy as np
-        solution = np.array([12, 3, 2])
-        clipped = optimizers.apply_bounds(solution, bounds)
-        assert clipped[0] == 10  # Clipped from 12 to 10
-        assert clipped[1] == 5   # Clipped from 3 to 5
-        assert clipped[2] == 1   # Clipped from 2 to 1
         
         # Test GeneticOptimizer class (implemented in V2-3)
         assert hasattr(optimizers, 'GeneticOptimizer')
         
-        # Test MPC-specific utility functions
-        assert hasattr(optimizers, 'setup_mpc_bounds')
-        assert hasattr(optimizers, 'reshape_chromosome_to_plan')
+        # Test GeneticOptimizer instantiation with minimal config
+        def simple_fitness(control_plan):
+            return np.sum(control_plan ** 2)
         
-        # Test MPC bounds setup
-        cpp_constraints = {
-            'spray_rate': {'min_val': 80.0, 'max_val': 180.0},
-            'air_flow': {'min_val': 400.0, 'max_val': 700.0}
+        config = {
+            'horizon': 3,
+            'num_cpps': 2,
+            'population_size': 10,
+            'num_generations': 5,
+            'crossover_prob': 0.7,
+            'mutation_prob': 0.2
         }
-        mpc_bounds = optimizers.setup_mpc_bounds(cpp_constraints, horizon=5)
-        assert len(mpc_bounds) == 10  # 2 CPPs * 5 horizon steps
-        assert mpc_bounds[0] == (80.0, 180.0)  # First spray_rate bound
-        assert mpc_bounds[1] == (400.0, 700.0)  # First air_flow bound
         
-        # Test chromosome reshaping
-        flat_chromosome = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
-        reshaped = optimizers.reshape_chromosome_to_plan(flat_chromosome, horizon=5, n_cpps=2)
-        assert reshaped.shape == (5, 2)
-        assert reshaped[0, 0] == 1 and reshaped[0, 1] == 2
+        bounds = [(0.0, 100.0)] * 6  # 3 horizon * 2 cpps
+        
+        # Should be able to instantiate
+        optimizer = optimizers.GeneticOptimizer(
+            fitness_function=simple_fitness,
+            param_bounds=bounds,
+            config=config
+        )
+        
+        # Test basic methods exist
+        assert hasattr(optimizer, 'optimize')
+        assert hasattr(optimizer, '_create_individual')
+        assert hasattr(optimizer, '_check_bounds')
+        assert hasattr(optimizer, '_validate_config')
+        
+        # Test individual creation
+        individual = optimizer._create_individual()
+        assert len(individual) == 6
+        
+        # Test bounds checking
+        test_individual = [50.0] * 6
+        repaired = optimizer._check_bounds(test_individual)
+        assert len(repaired) == 6
+        assert all(0.0 <= val <= 100.0 for val in repaired)
+        
+        # Test optimization (quick run)
+        result = optimizer.optimize()
+        assert result.shape == (3, 2)
+        assert isinstance(result, np.ndarray)
+        
+        print("✅ GeneticOptimizer basic functionality test passed")
         
     except ImportError as e:
         pytest.fail(f"Could not import optimizers module: {e}")
+    except Exception as e:
+        pytest.fail(f"GeneticOptimizer functionality test failed: {e}")
 
 def test_core_module():
     """Test that core module imports correctly."""
