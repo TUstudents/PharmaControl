@@ -5,9 +5,9 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "pharmacontrol"
 version = "0.1.1"
-description = "Model Predictive Control with uncertainty quantification for pharmaceutical manufacturing"
+description = "Unified Model Predictive Control system with uncertainty quantification for pharmaceutical manufacturing (V1 Prototype + V2 Industrial + V3 Autonomous)"
 readme = "README.md"
-license = "CC-BY-NC-SA-4.0"
+license = {text = "CC-BY-NC-SA-4.0"}
 authors = [
     {name = "PharmaControl-Pro Development Team", email = "dev@pharmacontrol.ai"},
 ]
@@ -37,20 +37,33 @@ classifiers = [
 ]
 requires-python = ">=3.12"
 dependencies = [
-    "deap>=1.4.3",
-    "jupyter>=1.1.1",
-    "matplotlib>=3.10.5",
+    # Core scientific computing
     "numpy>=2.3.2",
-    "optuna>=4.4.0",
-    "pandas>=2.3.1",
-    "plotly>=6.2.0",
-    "pykalman>=0.10.1",
-    "pyyaml>=6.0.2",
-    "scikit-learn>=1.7.1",
-    "seaborn>=0.13.2",
+    "scipy>=1.16.1",
+    
+    # Machine learning and deep learning
     "torch>=2.8.0",
     "torchvision>=0.23.0",
+    "scikit-learn>=1.7.1",
+    
+    # Data handling and analysis
+    "pandas>=2.3.1",
+    "joblib>=1.2.0",
+    
+    # Visualization
+    "matplotlib>=3.10.5",
+    "seaborn>=0.13.2",
+    "plotly>=6.2.0",
+    
+    # State estimation and optimization
+    "pykalman>=0.10.1",
+    "deap>=1.4.3",
+    "optuna>=4.4.0",
+    
+    # Configuration and utilities
+    "pyyaml>=6.0.2",
     "tqdm>=4.67.1",
+    "typing-extensions>=4.0.0",
 ]
 [project.optional-dependencies]
 # Development dependencies
@@ -58,19 +71,18 @@ dev = [
     "pytest>=7.0.0",
     "pytest-cov>=4.0.0",
     "black>=22.0.0",
-    "flake8>=5.0.0",
+    "ruff>=0.1.0",        # Modern replacement for flake8
     "mypy>=1.0.0",
     "isort>=5.10.0",
+    "pre-commit>=3.0.0",  # For git hooks
 ]
 
 # Notebook and visualization dependencies
 notebooks = [
-    "jupyter>=1.0.0",
+    "jupyter>=1.1.1",
     "jupyterlab>=3.4.0",
-    "matplotlib>=3.6.0",
-    "seaborn>=0.11.0",
-    "plotly>=5.10.0",
     "ipywidgets>=8.0.0",
+    "notebook>=7.0.0",
 ]
 
 # Documentation dependencies
@@ -86,6 +98,23 @@ full = [
     "pharmacontrol[dev,notebooks,docs]"
 ]
 
+# Version-specific dependencies
+v1 = [
+    "pharmacontrol[notebooks]",  # V1 is primarily notebook-based
+]
+
+v2 = [
+    "pharmacontrol[production]", # V2 is production-ready
+]
+
+v3 = [
+    "pharmacontrol[production]", # V3 is autonomous/production
+    "ray>=2.0.0",               # For distributed RL
+    "wandb>=0.15.0",            # For experiment tracking
+    "lime>=0.2.0",              # For explainable AI
+    "shap>=0.42.0",             # For SHAP explanations
+]
+
 # Production deployment
 production = [
     "gunicorn>=20.1.0",  # For web deployment
@@ -94,24 +123,54 @@ production = [
     "celery>=5.2.0",     # For distributed processing
 ]
 
+# Cloud deployment
+cloud = [
+    "pharmacontrol[production]",
+    "kubernetes>=28.0.0",       # For Kubernetes deployment
+    "boto3>=1.26.0",           # For AWS integration
+    "azure-storage-blob>=12.0.0", # For Azure integration
+    "google-cloud-storage>=2.0.0", # For GCP integration
+]
+
+# Testing and quality assurance
+testing = [
+    "pharmacontrol[dev]",
+    "hypothesis>=6.0.0",       # Property-based testing
+    "factory-boy>=3.2.0",      # Test data generation
+    "responses>=0.23.0",       # HTTP response mocking
+    "freezegun>=1.2.0",        # Time mocking
+]
+
+# CI/CD and automation
+cicd = [
+    "python-semantic-release>=8.0.0",  # Automated versioning
+    "bandit>=1.7.0",                   # Security scanning
+    "safety>=2.3.0",                   # Dependency vulnerability scanning
+    "twine>=4.0.0",                    # Package publishing
+    "build>=0.10.0",                   # Build backend
+]
+
 [project.urls]
-"Homepage" = "https://github.com/pharmacontrol/robust-mpc-pharma"
-"Documentation" = "https://robust-mpc-pharma.readthedocs.io"
-"Repository" = "https://github.com/pharmacontrol/robust-mpc-pharma"
-"Bug Tracker" = "https://github.com/pharmacontrol/robust-mpc-pharma/issues"
-"Changelog" = "https://github.com/pharmacontrol/robust-mpc-pharma/blob/main/CHANGELOG.md"
+"Homepage" = "https://github.com/pharmacontrol/PharmaControl"
+"Documentation" = "https://pharmacontrol.readthedocs.io"
+"Repository" = "https://github.com/pharmacontrol/PharmaControl"
+"Bug Tracker" = "https://github.com/pharmacontrol/PharmaControl/issues"
+"Changelog" = "https://github.com/pharmacontrol/PharmaControl/blob/master/CHANGELOG.md"
+"V1 Guide" = "https://github.com/pharmacontrol/PharmaControl/tree/master/V1"
+"V2 Guide" = "https://github.com/pharmacontrol/PharmaControl/tree/master/V2"
+"V3 Guide" = "https://github.com/pharmacontrol/PharmaControl/tree/master/V3"
 
 [project.scripts]
 # Command-line interfaces
-robust-mpc = "run_controller:main"
-pharma-control = "run_controller:main"
 
 [tool.setuptools]
-packages = ["V2.robust_mpc","V1.src"]
+packages = ["V2.robust_mpc","V1.src","V3.src.autopharm_core"]
 include-package-data = true
 
 [tool.setuptools.package-data]
-robust_mpc = ["*.yaml", "*.yml", "*.json"]
+"V2.robust_mpc" = ["*.yaml", "*.yml", "*.json"]
+"V1.src" = ["*.yaml", "*.yml", "*.json"]
+"V3.src.autopharm_core" = ["*.yaml", "*.yml", "*.json"]
 
 [tool.setuptools.exclude-package-data]
 "*" = ["*.pyc", "__pycache__/*", "*.pyo", "*.pyd", ".DS_Store"]
@@ -120,7 +179,7 @@ robust_mpc = ["*.yaml", "*.yml", "*.json"]
 
 [tool.black]
 line-length = 100
-target-version = ['py39']
+target-version = ['py312']
 include = '\.pyi?$'
 extend-exclude = '''
 /(
@@ -140,10 +199,30 @@ extend-exclude = '''
 profile = "black"
 multi_line_output = 3
 line_length = 100
-known_first_party = ["robust_mpc"]
+known_first_party = ["V1.src", "V2.robust_mpc", "V3.src.autopharm_core", "pharmacontrol"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+    "B",  # flake8-bugbear
+    "C4", # flake8-comprehensions
+    "UP", # pyupgrade
+]
+ignore = [
+    "E501",  # line too long, handled by black
+    "B008",  # do not perform function calls in argument defaults
+]
+
+[tool.ruff.per-file-ignores]
+"*/tests/*" = ["B011"]  # assert-false in tests
 
 [tool.mypy]
-python_version = "3.9"
+python_version = "3.12"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
@@ -163,11 +242,22 @@ module = [
     "deap.*",
     "sklearn.*",
     "joblib.*",
+    "optuna.*",
+    "plotly.*",
+    "seaborn.*",
+    "ray.*",
+    "wandb.*",
+    "lime.*",
+    "shap.*",
+    "kubernetes.*",
+    "boto3.*",
+    "azure.*",
+    "google.*",
 ]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["V1/tests", "V2/tests", "V3/tests"]
 python_files = "test_*.py"
 python_classes = "Test*"
 python_functions = "test_*"
@@ -180,7 +270,7 @@ addopts = [
 ]
 
 [tool.coverage.run]
-source = ["robust_mpc"]
+source = ["V1.src", "V2.robust_mpc", "V3.src.autopharm_core"]
 omit = [
     "*/tests/*",
     "*/test_*.py",
@@ -202,8 +292,37 @@ exclude_lines = [
     "@(abc\\.)?abstractmethod",
 ]
 
+# CI/CD and GitHub Actions integration
+[tool.semantic_release]
+version_toml = ["pyproject.toml:project.version"]
+branch = "master"
+upload_to_vcs_release = true
+build_command = "uv build"
+
+[tool.semantic_release.commit_parser_options]
+allowed_tags = ["build", "chore", "ci", "docs", "feat", "fix", "perf", "style", "refactor", "test"]
+minor_tags = ["feat"]
+patch_tags = ["fix", "perf"]
+
+# Security scanning configuration
+[tool.bandit]
+exclude_dirs = ["tests", "V1/tests", "V2/tests", "V3/tests"]
+skips = ["B101", "B601"]  # Skip assert and shell usage in specific contexts
+
+[tool.safety]
+ignore = []  # Add CVE numbers to ignore if needed
+
+# Pre-commit hooks configuration
+[tool.pre-commit]
+repos = [
+    {repo = "https://github.com/pre-commit/pre-commit-hooks", rev = "v4.4.0"},
+    {repo = "https://github.com/psf/black", rev = "23.0.0"},
+    {repo = "https://github.com/charliermarsh/ruff-pre-commit", rev = "v0.1.0"},
+    {repo = "https://github.com/pre-commit/mirrors-mypy", rev = "v1.5.0"},
+]
+
 # Versioning configuration
 [tool.setuptools_scm]
-write_to = "robust_mpc/_version.py"
+write_to = "_version.py"
 version_scheme = "post-release"
 local_scheme = "no-local-version"

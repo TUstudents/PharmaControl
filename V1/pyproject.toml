@@ -1,22 +1,88 @@
+# PharmaControl V1 - Prototype System Configuration
+# 
+# This file provides the configuration for the V1 prototype system with
+# Transformer-based prediction and basic MPC following modern Python
+# packaging standards (PEP 621).
+
+[build-system]
+requires = ["setuptools>=65.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
-name = "pharmacontrol"
-version = "0.1.0"
-description = "Add your description here"
+name = "pharmacontrol-v1"
+version = "1.0.0"
+description = "Prototype Model Predictive Control with Transformer-based prediction for pharmaceutical manufacturing"
 readme = "README.md"
+license = {text = "CC-BY-NC-SA-4.0"}
+authors = [
+    {name = "PharmaControl-Pro Development Team", email = "dev@pharmacontrol.ai"},
+]
+maintainers = [
+    {name = "PharmaControl-Pro Development Team", email = "dev@pharmacontrol.ai"},
+]
+keywords = [
+    "model-predictive-control",
+    "pharmaceutical-manufacturing", 
+    "transformer-architecture",
+    "process-control",
+    "prototype-system",
+    "educational-research"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Education",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Chemistry",
+    "Topic :: Education",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: OS Independent",
+]
 requires-python = ">=3.12"
 dependencies = [
-    "jupyter>=1.1.1",
-    "matplotlib>=3.10.5",
+    # Core scientific computing
     "numpy>=2.3.2",
-    "optuna>=4.4.0",
-    "pandas>=2.3.1",
-    "scikit-learn>=1.7.1",
+    
+    # Machine learning and deep learning
     "torch>=2.8.0",
     "torchvision>=0.23.0",
+    "scikit-learn>=1.7.1",
+    
+    # Data handling and analysis
+    "pandas>=2.3.1",
+    
+    # Visualization
+    "matplotlib>=3.10.5",
+    
+    # Optimization
+    "optuna>=4.4.0",
+    
+    # Configuration and utilities
     "tqdm>=4.67.1",
+    "typing-extensions>=4.0.0",
 ]
 
 [project.optional-dependencies]
+# Development dependencies
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "black>=22.0.0",
+    "flake8>=5.0.0",
+    "mypy>=1.0.0",
+    "isort>=5.10.0",
+]
+
+# Notebook and visualization dependencies
+notebooks = [
+    "jupyter>=1.1.1",
+    "jupyterlab>=3.4.0",
+    "ipywidgets>=8.0.0",
+    "notebook>=7.0.0",
+]
+
+# Documentation dependencies
 docs = [
     "sphinx>=4.0.0",
     "sphinx-rtd-theme>=1.0.0",
@@ -27,6 +93,109 @@ docs = [
     "sphinx-autobuild>=2021.3.14",
 ]
 
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+# Full installation (all optional dependencies)
+full = [
+    "pharmacontrol-v1[dev,notebooks,docs]"
+]
+
+[project.urls]
+"Homepage" = "https://github.com/pharmacontrol/PharmaControl/tree/master/V1"
+"Documentation" = "https://pharmacontrol.readthedocs.io/v1"
+"Repository" = "https://github.com/pharmacontrol/PharmaControl"
+"Bug Tracker" = "https://github.com/pharmacontrol/PharmaControl/issues"
+"Changelog" = "https://github.com/pharmacontrol/PharmaControl/blob/master/V1/CHANGELOG.md"
+
+[tool.setuptools]
+packages = ["src"]
+include-package-data = true
+
+[tool.setuptools.package-data]
+src = ["*.yaml", "*.yml", "*.json"]
+
+[tool.setuptools.exclude-package-data]
+"*" = ["*.pyc", "__pycache__/*", "*.pyo", "*.pyd", ".DS_Store"]
+
+# Development tool configurations
+
+[tool.black]
+line-length = 100
+target-version = ['py312']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+line_length = 100
+known_first_party = ["src"]
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+
+[[tool.mypy.overrides]]
+module = [
+    "sklearn.*",
+    "joblib.*",
+    "optuna.*",
+]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"
+addopts = [
+    "--cov=src",
+    "--cov-report=term-missing",
+    "--cov-report=html",
+    "--cov-fail-under=70",
+    "-v"
+]
+
+[tool.coverage.run]
+source = ["src"]
+omit = [
+    "*/tests/*",
+    "*/test_*.py",
+    "*/__pycache__/*",
+    "*/.*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]

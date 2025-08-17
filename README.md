@@ -2,94 +2,162 @@
 
 [![V1: Prototype](https://img.shields.io/badge/V1-Prototype-blue.svg)](V1/README.md)
 [![V2: Industrial](https://img.shields.io/badge/V2-Industrial%20Grade-green.svg)](V2/README.md)
-[![License: Educational](https://img.shields.io/badge/license-Educational-orange.svg)](LICENSE)
+[![V3: Autonomous](https://img.shields.io/badge/V3-Autonomous%20System-purple.svg)](V3/README.md)
+[![License: CC BY-NC-SA 4.0](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-orange.svg)](LICENSE)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://python.org)
 
-**From Prototype to Production: A Complete Journey in Advanced Process Control**
+**From Prototype to Production to Autonomous Intelligence: The Complete Evolution of Advanced Process Control**
 
 ## 🚀 Project Overview
 
-PharmaControl demonstrates the complete evolution from research prototype to industrial-grade control system for pharmaceutical continuous granulation processes. This project showcases the integration of machine learning, control theory, uncertainty quantification, and advanced optimization in a real-world industrial context.
+PharmaControl demonstrates the complete evolution from research prototype to autonomous industrial control system for pharmaceutical continuous granulation processes. This project showcases the integration of machine learning, control theory, uncertainty quantification, advanced optimization, reinforcement learning, and explainable AI in a real-world industrial context.
 
-## 📁 Project Structure
+### 🎯 Three-Stage Evolution
+
+1. **V1 (Prototype)**: Educational foundation with Transformer-based prediction and basic MPC
+2. **V2 (Industrial)**: Production-ready system with uncertainty quantification and Kalman filtering  
+3. **V3 (Autonomous)**: Self-learning system with online adaptation, RL, and explainable AI
+
+## 🏗️ Unified Architecture
+
+This project uses a **central environment setup** with unified dependency management across all versions:
 
 ```
 PharmaControl/
-├── 📋 README.md                    # This overview document
-├── 📁 V1/                          # Prototype system (Educational foundation)
-│   ├── 📖 README.md               # V1 documentation
-│   ├── 📓 notebooks/              # 5-notebook educational series
-│   │   ├── 01_Advanced_Process_Simulation_and_Theory.ipynb
-│   │   ├── 02_Data_Wrangling_and_Hybrid_Preprocessing.ipynb
-│   │   ├── 03_Predictive_Model_Training_and_Validation.ipynb
-│   │   ├── 04_Robust_Model_Predictive_Control_System.ipynb
-│   │   └── 05_Closed_Loop_Simulation_and_Performance_Analysis.ipynb
-│   ├── 🏗️ src/                    # V1 implementation modules
-│   └── 💾 data/                   # V1 datasets and models
-└── 📁 V2/                         # Industrial-grade system (Production-ready)
-    ├── 📖 README.md               # V2 documentation  
-    ├── 📓 notebooks/              # 5-notebook advanced series
-    │   ├── V2-1_State_Estimation_for_Stable_Control.ipynb
-    │   ├── V2-2_Probabilistic_Modeling_for_Uncertainty_Awareness.ipynb
-    │   ├── V2-3_Advanced_Optimization_with_Genetic_Algorithms.ipynb
-    │   ├── V2-4_The_Robust_MPC_Core_Integrating_Intelligence.ipynb
-    │   └── V2-5_V2_vs_V1_Showdown_Stress_Test_Comparison.ipynb ✅
-    ├── 🏭 robust_mpc/             # Industrial-grade library
-    └── 🧪 tests/                  # Comprehensive test suite
+├── 📋 README.md                     # This overview document
+├── ⚙️ pyproject.toml                # Central configuration & dependencies
+├── 🔧 .venv/                        # Unified virtual environment (Python 3.12)
+├── 📁 V1/                           # Prototype system (Educational foundation)
+│   ├── 📖 README.md                # V1 documentation
+│   ├── ⚙️ pyproject.toml           # V1-specific configuration
+│   ├── 📓 notebooks/               # 5-notebook educational series
+│   ├── 🏗️ src/                     # V1 implementation modules
+│   ├── 💾 data/                    # V1 datasets and models
+│   └── 📚 docs/                    # V1 documentation (Sphinx)
+├── 📁 V2/                          # Industrial-grade system (Production-ready)
+│   ├── 📖 README.md                # V2 documentation  
+│   ├── ⚙️ pyproject.toml           # V2-specific configuration
+│   ├── 📓 notebooks/               # 5-notebook advanced series
+│   ├── 🏭 robust_mpc/              # Industrial-grade library
+│   ├── 🧪 tests/                   # Comprehensive test suite
+│   └── 🚀 run_controller.py        # Production controller entry point
+└── 📁 V3/                          # Autonomous system (AI-driven)
+    ├── 📖 README.md                # V3 documentation
+    ├── ⚙️ pyproject.toml           # V3-specific configuration  
+    ├── 📓 notebooks/               # 3-notebook autonomous series
+    ├── 🤖 services/                # Microservice architecture
+    │   ├── control_agent/          # Main control orchestration
+    │   ├── learning_service/       # Online model adaptation
+    │   └── monitoring_xai_service/ # Explainable AI monitoring
+    ├── 🧠 src/autopharm_core/      # Core autonomous components
+    └── 🧪 tests/                   # Advanced testing suite
+```
+
+## 🛠️ Quick Setup (Unified Environment)
+
+### Prerequisites
+- Python 3.12+
+- [uv](https://github.com/astral-sh/uv) package manager
+
+### One-Command Setup
+```bash
+# Clone and setup entire project
+git clone https://github.com/pharmacontrol/PharmaControl.git
+cd PharmaControl
+
+# Activate central environment
+source .venv/bin/activate
+
+# Install with all development tools
+uv pip install -e ".[dev,notebooks]"
+
+# Verify installation
+python -c "
+from V1.src import plant_simulator
+from V2.robust_mpc import core  
+from V3.src.autopharm_core.learning import online_trainer
+print('✅ All versions accessible from central environment')
+"
+```
+
+### Version-Specific Installation
+```bash
+# For V1 prototype work
+uv pip install -e ".[v1,notebooks]"
+
+# For V2 production deployment  
+uv pip install -e ".[v2,production]"
+
+# For V3 autonomous research
+uv pip install -e ".[v3,rl-advanced,xai-research]"
+
+# For complete development
+uv pip install -e ".[full]"
 ```
 
 ## 🎯 Version Comparison
 
-| Feature | V1 (Prototype) | V2 (Industrial) | Improvement |
-|---------|----------------|-----------------|-------------|
-| **Architecture** | Monolithic | Modular Library | ✅ Production-ready |
-| **State Estimation** | Raw measurements | Kalman filtering | ✅ Noise robustness |
-| **Uncertainty** | Point estimates | Probabilistic models | ✅ Risk awareness |
-| **Optimization** | Grid search | Genetic algorithms | ✅ Scalable & intelligent |
-| **Disturbance Handling** | None | Integral action | ✅ Offset-free control |
-| **Safety** | Basic constraints | Risk-adjusted costs | ✅ Uncertainty-aware safety |
-| **Performance** | Educational demo | Industrial metrics | ✅ Production validation |
+| Feature | V1 (Prototype) | V2 (Industrial) | V3 (Autonomous) | Evolution |
+|---------|----------------|-----------------|-----------------|-----------|
+| **Architecture** | Monolithic | Modular Library | Microservices | ✅ Scalable |
+| **State Estimation** | Raw measurements | Kalman filtering | Adaptive filtering | ✅ Intelligence |
+| **Uncertainty** | Point estimates | Probabilistic models | Bayesian online learning | ✅ Continuous improvement |
+| **Optimization** | Grid search | Genetic algorithms | Reinforcement learning | ✅ Self-optimization |
+| **Adaptation** | Static | Fixed parameters | Online learning | ✅ Autonomous evolution |
+| **Explainability** | None | Basic metrics | XAI integration | ✅ Transparent decisions |
+| **Deployment** | Local notebooks | Production server | Cloud microservices | ✅ Modern architecture |
+| **Safety** | Basic constraints | Risk-adjusted costs | Learned safety policies | ✅ Adaptive safety |
 
 ## 🎓 Learning Path
 
-### **Start with V1: Foundation Building**
-Perfect for understanding the core concepts:
-- Process simulation and modeling
+### **🔵 Level 1: V1 Foundation Building**
+Perfect for understanding core concepts:
+- Process simulation and modeling  
 - Machine learning for control
 - Basic MPC implementation
 - Performance analysis fundamentals
 
-👉 **[Go to V1 Documentation](V1/README.md)**
+**⏱️ Time Investment**: 2-3 days  
+👉 **[Start with V1 Documentation](V1/README.md)**
 
-### **Advance to V2: Industrial Implementation** 
+### **🟢 Level 2: V2 Industrial Implementation**
 For production-ready, industrial-grade systems:
 - State-space estimation and Kalman filtering
 - Uncertainty quantification and probabilistic modeling
-- Advanced optimization with evolutionary algorithms  
+- Advanced optimization with evolutionary algorithms
 - Integrated robust control with formal guarantees
 
-👉 **[Go to V2 Documentation](V2/README.md)**
+**⏱️ Time Investment**: 1-2 weeks  
+👉 **[Advance to V2 Documentation](V2/README.md)**
+
+### **🟣 Level 3: V3 Autonomous Intelligence**
+For cutting-edge autonomous control systems:
+- Online learning and model adaptation
+- Reinforcement learning for policy optimization
+- Explainable AI for trust and transparency
+- Microservice architecture for scalability
+
+**⏱️ Time Investment**: 2-4 weeks  
+👉 **[Master V3 Documentation](V3/README.md)**
 
 ## 🏭 Industrial Applications
 
-This complete framework addresses real-world challenges in:
+This complete framework addresses real-world challenges across multiple industries:
 
 ### **Pharmaceutical Manufacturing**
-- Continuous granulation processes
-- Tablet coating operations
-- API crystallization control
-- Quality by Design (QbD) implementation
+- **V1**: Prototype granulation control
+- **V2**: Production-grade tablet manufacturing
+- **V3**: Autonomous quality assurance systems
 
 ### **Chemical Process Control**
-- Reactor temperature management
-- Distillation column optimization
-- Polymerization process control
-- Batch process automation
+- **V1**: Basic reactor control
+- **V2**: Advanced distillation optimization  
+- **V3**: Self-optimizing chemical plants
 
 ### **Advanced Materials**
-- Polymer processing control
-- Ceramic manufacturing
-- Composite material production
-- Additive manufacturing optimization
+- **V1**: Polymer processing fundamentals
+- **V2**: Industrial composite manufacturing
+- **V3**: Adaptive additive manufacturing
 
 ## 🔬 Technical Innovation Highlights
 
@@ -102,84 +170,182 @@ This complete framework addresses real-world challenges in:
 ### **V2 Innovations (Industrial Breakthrough)**
 - **Uncertainty quantification**: Monte Carlo Dropout for confidence bounds
 - **Risk-aware optimization**: Upper Confidence Bound approach
-- **State estimation**: Kalman filtering for sensor noise rejection  
+- **State estimation**: Kalman filtering for sensor noise rejection
 - **Integral action**: Automatic disturbance learning and compensation
 - **Evolutionary optimization**: Intelligent search through complex action spaces
 
-## 🚀 Quick Start
+### **V3 Innovations (Autonomous Intelligence)**
+- **Online learning**: Real-time model adaptation from process data
+- **Reinforcement learning**: Policy optimization through experience
+- **Explainable AI**: LIME, SHAP, and custom interpretability methods
+- **Microservice architecture**: Scalable, distributed control systems
+- **Safety learning**: Adaptive constraint handling and risk assessment
 
-### **For Learning (Start with V1)**
+## 🚀 Development Workflows
+
+### **Code Quality & Testing**
 ```bash
-cd V1
-# Follow V1 README for setup
+# Code formatting and linting
+black V1/ V2/ V3/
+ruff V1/ V2/ V3/
+isort V1/ V2/ V3/
+
+# Type checking
+mypy V1/ V2/ V3/
+
+# Testing (from central environment)
+pytest V2/tests/ -v                    # V2 industrial tests
+pytest V3/tests/ -v                    # V3 autonomous tests
+
+# Test coverage across all versions
+pytest --cov=V1.src --cov=V2.robust_mpc --cov=V3.src.autopharm_core
 ```
 
-### **For Production Use (Jump to V2)**
+### **Running Controllers**
 ```bash
-cd V2
-uv run python -c "
-import robust_mpc
-robust_mpc.print_library_info()
+# V1: Notebook-based execution
+cd V1 && jupyter lab
 
-from robust_mpc import (
-    KalmanStateEstimator,      # Noise filtering
-    ProbabilisticTransformer,  # Uncertainty-aware prediction  
-    GeneticOptimizer,          # Intelligent optimization
-    RobustMPCController        # Complete integrated system
-)
-"
+# V2: Production controller
+python V2/run_controller.py --config V2/config.yaml
+
+# V3: Microservice deployment
+cd V3 && docker-compose up  # (Future implementation)
 ```
 
-## 📊 Educational Impact
+## 📊 Educational Impact & Skills Development
 
 ### **Graduate-Level Concepts Covered**
-- ✅ **Control Theory**: MPC, state estimation, robustness analysis
+- ✅ **Classical Control**: MPC, state estimation, robustness analysis
 - ✅ **Machine Learning**: Transformers, uncertainty quantification, Bayesian methods
-- ✅ **Optimization**: Evolutionary algorithms, multi-objective optimization
+- ✅ **Advanced AI**: Reinforcement learning, online learning, transfer learning
+- ✅ **Explainable AI**: Model interpretability, decision transparency, trust metrics
+- ✅ **Modern Architecture**: Microservices, distributed systems, cloud deployment
 - ✅ **Industrial Practice**: Process simulation, regulatory compliance, safety systems
-- ✅ **System Integration**: Modular design, dependency injection, production patterns
 
-### **Skills Developed**
-- Advanced control system design
-- Industrial machine learning implementation
-- Uncertainty-aware decision making
-- Production software architecture
-- Performance validation and testing
+### **Professional Skills Developed**
+1. **V1 Skills**: Basic control system design, ML for control, Python proficiency
+2. **V2 Skills**: Industrial software architecture, production deployment, testing
+3. **V3 Skills**: Autonomous system design, microservices, explainable AI, cloud deployment
+
+## 🔄 Central Environment Benefits
+
+The unified environment approach provides:
+
+- **✅ Consistent Dependencies**: All versions use same Python 3.12 and package versions
+- **✅ Cross-Version Imports**: Easy comparison and component reuse between versions
+- **✅ Unified Development**: Single environment for development across all versions
+- **✅ Simplified Testing**: Integrated test suite covering all components
+- **✅ Enhanced Tooling**: Shared code quality tools (black, ruff, mypy, pytest)
 
 ## 🤝 Contributing
 
-This is an educational project demonstrating advanced control concepts. Contributions welcome for:
+This project welcomes contributions for:
 
-- 📝 Documentation improvements and tutorials
-- 🧪 Additional test cases and validation scenarios
-- 🔧 New algorithm implementations
-- 📊 Visualization and analysis tools
-- 🏭 Additional industrial case studies
+- 📝 **Documentation**: Tutorials, examples, API documentation
+- 🧪 **Testing**: Additional test cases, validation scenarios, benchmarks
+- 🔧 **Features**: New algorithms, optimization methods, control strategies
+- 🎨 **Visualization**: Analysis tools, dashboards, monitoring interfaces
+- 🏭 **Applications**: New industrial case studies and implementations
+- 🔬 **Research**: Novel AI/ML techniques for autonomous control
 
-## 📄 License
+### Contribution Guidelines
+```bash
+# Setup development environment
+uv pip install -e ".[dev,testing,cicd]"
 
-This project is provided for educational and research purposes. Please ensure compliance with applicable regulations when adapting for industrial use.
+# Pre-commit hooks
+pre-commit install
 
-## 🏆 Achievement Unlocked
+# Run full test suite before submitting
+pytest --cov=V1.src --cov=V2.robust_mpc --cov=V3.src.autopharm_core
+```
 
-By working through both V1 and V2, you will have mastered:
+## 📄 License & Usage
 
-1. **V1 Foundation**: Core concepts and working prototype
-2. **V2 Excellence**: Industrial-grade system with formal robustness guarantees
-3. **Complete Evolution**: From research idea to production-ready implementation
+**License**: CC BY-NC-SA 4.0 (Creative Commons Attribution-NonCommercial-ShareAlike 4.0)
 
-## 🔮 Future Directions
+This project is provided for educational and research purposes. Commercial use requires explicit permission. Please ensure compliance with applicable regulations when adapting for industrial use.
 
-The architecture supports extension to:
-- **V2.1**: Adaptive learning and online recalibration
-- **V2.2**: Economic optimization and supply chain integration
-- **V2.3**: Formal verification and safety-critical compliance
-- **V3.0**: Cloud-native distributed control systems
+## 🏆 Achievement Pathway
+
+### **🥉 Bronze: Foundation Mastery**
+Complete V1 → Understand core MPC and ML integration
+
+### **🥈 Silver: Industrial Expertise** 
+Complete V1 + V2 → Master production-ready control systems
+
+### **🥇 Gold: Autonomous Intelligence**
+Complete V1 + V2 + V3 → Expert in autonomous control with explainable AI
+
+### **🏆 Platinum: Innovation Leader**
+Contribute to the project → Shape the future of intelligent process control
+
+## 🔮 Roadmap & Future Development
+
+### **Current Status**
+- ✅ **V1**: Complete and documented
+- ✅ **V2**: Complete with comprehensive testing
+- 🚧 **V3**: Core components implemented, advanced features in development
+
+### **Upcoming Features**
+- **V3.1**: Complete microservice architecture with Docker/Kubernetes
+- **V3.2**: Advanced RL algorithms (PPO, SAC, TD3)
+- **V3.3**: Federated learning across multiple plants
+- **V3.4**: Digital twin integration and simulation-to-reality transfer
+
+### **Research Directions**
+- **Safety-Critical RL**: Formal verification of learned policies
+- **Causal AI**: Understanding cause-effect relationships in process control
+- **Quantum Control**: Quantum-enhanced optimization algorithms
+- **Human-AI Collaboration**: Interactive control system design
 
 ---
 
-**🎯 Mission**: Demonstrate the complete journey from academic research to industrial-grade process control implementation.
+**🎯 Mission**: Demonstrate the complete evolution from academic research through industrial implementation to autonomous intelligence in process control.
 
-**🔬 Vision**: Bridge the gap between control theory and industrial reality with uncertainty-aware, adaptive, safety-critical systems.
+**🔬 Vision**: Bridge the gap between control theory and autonomous industrial reality with uncertainty-aware, adaptive, explainable, and safety-critical systems.
 
-**⭐ Start your journey**: [V1 Prototype](V1/README.md) → [V2 Industrial](V2/README.md) → Production Excellence!
+**⭐ Start Your Journey**: 
+[V1 Prototype](V1/README.md) → [V2 Industrial](V2/README.md) → [V3 Autonomous](V3/README.md) → **Future Pioneer**!
+
+## 🌟 Complete Navigation Guide
+
+### **📖 Documentation Index**
+
+| Version | Focus Area | README | Key Features | Learning Time |
+|---------|------------|--------|--------------|---------------|
+| **Central** | Project Overview | [README.md](README.md) | Unified environment, project structure | 30 minutes |
+| **V1** | Educational Foundation | [V1/README.md](V1/README.md) | Transformer-based MPC, 5 notebooks | 2-3 days |
+| **V2** | Industrial Production | [V2/README.md](V2/README.md) | Uncertainty quantification, genetic optimization | 1-2 weeks |
+| **V3** | Autonomous Intelligence | [V3/README.md](V3/README.md) | RL, XAI, online learning, microservices | 2-4 weeks |
+
+### **🔗 Cross-Reference Matrix**
+
+| From → To | Purpose | Link Pattern |
+|-----------|---------|--------------|
+| **Central → V1** | Start learning journey | `[V1 Prototype](V1/README.md)` |
+| **Central → V2** | Production deployment | `[V2 Industrial](V2/README.md)` |
+| **Central → V3** | Autonomous research | `[V3 Autonomous](V3/README.md)` |
+| **V1 → V2** | Evolution pathway | `[V2 Industrial →](../V2/README.md)` |
+| **V2 → V3** | Advanced intelligence | `[V3 Autonomous →](../V3/README.md)` |
+| **V1/V2/V3 → Central** | Full project context | `[← Main README](../README.md)` |
+
+### **⚙️ Configuration Files**
+
+| File | Purpose | Key Dependencies |
+|------|---------|------------------|
+| **pyproject.toml** | Central configuration | All versions, unified deps |
+| **V1/pyproject.toml** | Prototype setup | Educational dependencies |
+| **V2/pyproject.toml** | Production config | Industrial dependencies |
+| **V3/pyproject.toml** | Autonomous setup | RL/XAI dependencies |
+| **CLAUDE.md** | Developer guide | Development workflows |
+
+### **🚀 Quick Start Paths**
+
+| Goal | Path | Commands |
+|------|------|----------|
+| **Learn Fundamentals** | V1 Only | `cd V1 && jupyter lab` |
+| **Deploy Production** | V1 → V2 | `python V2/run_controller.py` |
+| **Research Autonomy** | V1 → V2 → V3 | `cd V3 && jupyter lab` |
+| **Full Development** | Central Environment | `uv pip install -e ".[full]"` |

@@ -1,0 +1,318 @@
+# PharmaControl V3 - Autonomous System Configuration
+# 
+# This file provides the configuration for the V3 autonomous system with
+# online learning, explainable AI, and reinforcement learning following
+# modern Python packaging standards (PEP 621).
+
+[build-system]
+requires = ["setuptools>=65.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pharmacontrol-v3"
+version = "3.0.0"
+description = "Autonomous Model Predictive Control with online learning, explainable AI, and reinforcement learning for pharmaceutical manufacturing"
+readme = "README.md"
+license = {text = "CC-BY-NC-SA-4.0"}
+authors = [
+    {name = "PharmaControl-Pro Development Team", email = "dev@pharmacontrol.ai"},
+]
+maintainers = [
+    {name = "PharmaControl-Pro Development Team", email = "dev@pharmacontrol.ai"},
+]
+keywords = [
+    "model-predictive-control",
+    "pharmaceutical-manufacturing", 
+    "reinforcement-learning",
+    "explainable-ai",
+    "online-learning",
+    "autonomous-control",
+    "microservices",
+    "industrial-automation"
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Manufacturing",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Chemistry",
+    "Topic :: System :: Distributed Computing",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: OS Independent",
+]
+requires-python = ">=3.12"
+dependencies = [
+    # Core scientific computing
+    "numpy>=2.3.2",
+    "scipy>=1.16.1",
+    
+    # Machine learning and deep learning
+    "torch>=2.8.0",
+    "torchvision>=0.23.0",
+    "scikit-learn>=1.7.1",
+    
+    # Data handling and analysis
+    "pandas>=2.3.1",
+    "joblib>=1.2.0",
+    
+    # Visualization
+    "matplotlib>=3.10.5",
+    "seaborn>=0.13.2",
+    "plotly>=6.2.0",
+    
+    # State estimation and optimization
+    "pykalman>=0.10.1",
+    "deap>=1.4.3",
+    "optuna>=4.4.0",
+    
+    # Reinforcement Learning
+    "ray[rllib]>=2.0.0",
+    "stable-baselines3>=2.0.0",
+    "gymnasium>=0.29.0",
+    
+    # Explainable AI
+    "lime>=0.2.0",
+    "shap>=0.42.0",
+    "captum>=0.6.0",
+    
+    # Microservices and communication
+    "fastapi>=0.104.0",
+    "uvicorn>=0.24.0",
+    "celery>=5.2.0",
+    "redis>=4.3.0",
+    "httpx>=0.25.0",
+    
+    # Database and storage
+    "sqlalchemy>=2.0.0",
+    "alembic>=1.12.0",
+    "sqlite3",  # Built-in, but explicit for clarity
+    
+    # Monitoring and logging
+    "wandb>=0.15.0",
+    "mlflow>=2.7.0",
+    "prometheus-client>=0.17.0",
+    
+    # Configuration and utilities
+    "pyyaml>=6.0.2",
+    "tqdm>=4.67.1",
+    "typing-extensions>=4.0.0",
+    "pydantic>=2.4.0",
+]
+
+[project.optional-dependencies]
+# Development dependencies
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "pytest-asyncio>=0.21.0",
+    "black>=22.0.0",
+    "ruff>=0.1.0",
+    "mypy>=1.0.0",
+    "isort>=5.10.0",
+    "pre-commit>=3.0.0",
+]
+
+# Notebook and visualization dependencies
+notebooks = [
+    "jupyter>=1.1.1",
+    "jupyterlab>=3.4.0",
+    "ipywidgets>=8.0.0",
+    "notebook>=7.0.0",
+]
+
+# Documentation dependencies
+docs = [
+    "sphinx>=5.0.0",
+    "sphinx-rtd-theme>=1.0.0",
+    "myst-parser>=0.18.0",
+    "sphinx-autodoc-typehints>=1.19.0",
+    "sphinx-autoapi>=3.0.0",
+]
+
+# Production deployment
+production = [
+    "gunicorn>=20.1.0",
+    "docker>=6.0.0",
+    "kubernetes>=28.0.0",
+]
+
+# Cloud deployment
+cloud = [
+    "pharmacontrol-v3[production]",
+    "boto3>=1.26.0",
+    "azure-storage-blob>=12.0.0",
+    "google-cloud-storage>=2.0.0",
+]
+
+# Advanced RL dependencies
+rl-advanced = [
+    "ray[tune]>=2.0.0",
+    "tensorboard>=2.14.0",
+    "tensorboardx>=2.6.0",
+    "wandb>=0.15.0",
+]
+
+# XAI research dependencies
+xai-research = [
+    "interpretML>=0.4.0",
+    "alibi>=0.9.0",
+    "alibi-detect>=0.11.0",
+    "aix360>=0.3.0",
+]
+
+# Full installation (all optional dependencies)
+full = [
+    "pharmacontrol-v3[dev,notebooks,docs,production,rl-advanced,xai-research]"
+]
+
+[project.urls]
+"Homepage" = "https://github.com/pharmacontrol/PharmaControl/tree/master/V3"
+"Documentation" = "https://pharmacontrol.readthedocs.io/v3"
+"Repository" = "https://github.com/pharmacontrol/PharmaControl"
+"Bug Tracker" = "https://github.com/pharmacontrol/PharmaControl/issues"
+"Changelog" = "https://github.com/pharmacontrol/PharmaControl/blob/master/V3/CHANGELOG.md"
+
+[project.scripts]
+# Microservice entry points
+autopharm-control = "src.autopharm_core.control.main:main"
+autopharm-learning = "src.autopharm_core.learning.service:main"
+autopharm-xai = "src.autopharm_core.xai.service:main"
+
+[tool.setuptools]
+packages = ["src.autopharm_core"]
+include-package-data = true
+
+[tool.setuptools.package-data]
+"src.autopharm_core" = ["*.yaml", "*.yml", "*.json", "config/*"]
+
+[tool.setuptools.exclude-package-data]
+"*" = ["*.pyc", "__pycache__/*", "*.pyo", "*.pyd", ".DS_Store"]
+
+# Development tool configurations
+
+[tool.black]
+line-length = 100
+target-version = ['py312']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+    "B",  # flake8-bugbear
+    "C4", # flake8-comprehensions
+    "UP", # pyupgrade
+    "ASYNC", # async/await best practices
+]
+ignore = [
+    "E501",  # line too long, handled by black
+    "B008",  # do not perform function calls in argument defaults
+]
+
+[tool.ruff.per-file-ignores]
+"*/tests/*" = ["B011"]  # assert-false in tests
+"*/services/*" = ["ASYNC100"]  # async service patterns
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+line_length = 100
+known_first_party = ["src.autopharm_core", "pharmacontrol_v3"]
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = [
+    "ray.*",
+    "wandb.*",
+    "mlflow.*",
+    "lime.*",
+    "shap.*",
+    "captum.*",
+    "stable_baselines3.*",
+    "gymnasium.*",
+    "prometheus_client.*",
+    "sqlalchemy.*",
+    "alembic.*",
+    "fastapi.*",
+    "uvicorn.*",
+    "celery.*",
+    "redis.*",
+    "interpretML.*",
+    "alibi.*",
+    "aix360.*",
+]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"
+addopts = [
+    "--cov=src.autopharm_core",
+    "--cov-report=term-missing",
+    "--cov-report=html",
+    "--cov-fail-under=75",
+    "-v",
+    "--asyncio-mode=auto"
+]
+asyncio_mode = "auto"
+
+[tool.coverage.run]
+source = ["src.autopharm_core"]
+omit = [
+    "*/tests/*",
+    "*/test_*.py",
+    "*/__pycache__/*",
+    "*/.*",
+    "*/services/*/main.py",  # Service entry points
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+    "async def main",  # Service main functions
+]

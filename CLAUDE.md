@@ -12,58 +12,86 @@ PharmaControl is an advanced process control system evolution for pharmaceutical
 
 ## Development Commands
 
-### Package Management
-All versions use uv as package manager with `.venv` virtual environments:
+### Central Environment Setup
+The project now uses a unified central environment that supports all three versions:
 
 ```bash
-# Setup virtual environment and install dependencies for any version
-cd V1/  # or V2/ or V3/
+# Activate the central environment (from project root)
 source .venv/bin/activate
 
-# Install with development dependencies (V2)
-cd V2/
-source .venv/bin/activate
+# Install project with all dependencies and development tools
 uv pip install -e ".[dev,notebooks]"
 
-# Sync dependencies from lock file (with activated environment)
-source .venv/bin/activate
+# Sync dependencies from lock file (if available)
 uv sync
+```
+
+**Key Benefits of Central Environment:**
+- ✅ All modules discoverable: `V1.src`, `V2.robust_mpc`, `V3.src.autopharm_core`
+- ✅ Cross-module imports working: `from V1.src import plant_simulator`
+- ✅ Unified dependency management across all versions
+- ✅ Single Python 3.12.3 environment for consistent behavior
+
+### Package Management
+Project uses uv as package manager with a central `.venv` virtual environment:
+
+```bash
+# Central configuration in pyproject.toml includes:
+# - V1.src, V2.robust_mpc, V3.src.autopharm_core packages
+# - All dependencies: torch, numpy, scipy, pandas, etc.
+# - Development tools: pytest, black, mypy, isort
+# - Fixed license format: CC-BY-NC-SA-4.0
+# - Python 3.12 consistency across all configurations
 ```
 
 ### Testing
 ```bash
-# V2 comprehensive testing
-cd V2/
+# Activate central environment first
 source .venv/bin/activate
-pytest tests/ -v --cov=robust_mpc
-python tests/test_library_structure.py
 
-# V2 specific component tests
-python test_v2_3_completion.py
-python test_v2_4_completion.py
+# V2 comprehensive testing
+pytest V2/tests/ -v --cov=robust_mpc
+python V2/tests/test_library_structure.py
+
+# V2 specific component tests  
+python V2/test_v2_3_completion.py
+python V2/test_v2_4_completion.py
+
+# Cross-version testing (all tests from central environment)
+pytest V1/tests/ V2/tests/ V3/tests/ -v
 ```
 
 ### Running Controllers
 ```bash
-# V2 production controller
-cd V2/
+# Activate central environment first
 source .venv/bin/activate
-python run_controller.py
-python run_controller.py --config config.yaml --no-realtime --steps 500
+
+# V2 production controller (run from project root)
+python V2/run_controller.py
+python V2/run_controller.py --config V2/config.yaml --no-realtime --steps 500
 
 # V1 notebook-based execution
-cd V1/
-source .venv/bin/activate
-jupyter lab  # Run notebooks 01-05 in sequence
+jupyter lab  # Navigate to V1/notebooks/ and run 01-05 in sequence
+
+# V3 services (when available)
+python V3/services/control_agent/main.py
 ```
 
-### Code Quality (V2)
+### Code Quality
 ```bash
-cd V2/
+# Activate central environment first
 source .venv/bin/activate
-black robust_mpc/
-isort robust_mpc/
-mypy robust_mpc/
+
+# Format code across all versions
+black V1/ V2/ V3/
+isort V1/ V2/ V3/
+
+# Type checking across all versions
+mypy V1/ V2/ V3/
+
+# Version-specific formatting
+black V2/robust_mpc/  # V2 library only
+mypy V2/robust_mpc/   # V2 library only
 ```
 
 ## Architecture Overview
@@ -124,35 +152,130 @@ mypy robust_mpc/
 
 ### Common Development Workflows
 
+**Central Environment Setup (Required First Step):**
+1. Navigate to project root: `/home/feynman/projects/PharmaControl`
+2. Activate central environment: `source .venv/bin/activate`
+3. Verify installation: `python -c "import V1.src, V2.robust_mpc, V3.src.autopharm_core; print('All modules available')"`
+
 When working with V1 (educational/prototype):
-1. Navigate to `V1/` directory
-2. Setup environment: `source .venv/bin/activate` (virtual environment should exist)
-3. Use Jupyter notebooks for interactive development: `jupyter lab`
-4. Execute notebooks in sequence: 01 → 02 → 03 → 04 → 05
-5. Modify `src/` modules following professional documentation standards
-6. Test changes using notebook examples and validation cells
+1. From project root with activated environment
+2. Use Jupyter notebooks: `jupyter lab` → Navigate to `V1/notebooks/`
+3. Execute notebooks in sequence: 01 → 02 → 03 → 04 → 05
+4. Modify `V1/src/` modules following professional documentation standards
+5. Test changes using notebook examples and validation cells
+6. Import pattern: `from V1.src import plant_simulator, model_architecture`
 
 When working with V2 (production):
-1. Navigate to top directory. Add `V2/` subdirectory to commands
-2. Setup environment: `source .venv/bin/activate` (virtual environment should exist)
-3. Test with `pytest tests/ -v` (environment activated)
-4. Run controller with `python run_controller.py` (environment activated)
-5. Modify `robust_mpc/` modules as needed
-6. Test changes with existing test suite
+1. From project root with activated environment
+2. Test with `pytest V2/tests/ -v --cov=robust_mpc`
+3. Run controller with `python V2/run_controller.py --config V2/config.yaml`
+4. Modify `V2/robust_mpc/` modules as needed
+5. Test changes with existing test suite
+6. Import pattern: `from V2.robust_mpc import core, models, estimators`
+
+When working with V3 (autonomous):
+1. From project root with activated environment
+2. Run services: `python V3/services/control_agent/main.py`
+3. Modify `V3/src/autopharm_core/` modules as needed
+4. Import pattern: `from V3.src.autopharm_core import control, learning, rl`
 
 When adding new features:
 1. Follow the modular design pattern from V2
-2. Add comprehensive tests in `tests/`
-3. Update configuration in `config.yaml` if needed
-4. Validate with performance benchmarks
+2. Add comprehensive tests in version-specific `tests/` directories
+3. Update configuration files as needed (`V2/config.yaml`, etc.)
+4. Validate with performance benchmarks using central environment
 5. Follow established docstring standards for all new code
+6. Ensure cross-version compatibility when importing modules
 
 ### Important File Locations
+- **Central configuration**: `pyproject.toml` (unified package and dependency management)
+- **Central environment**: `.venv/` (Python 3.12.3 with all versions and tools)
 - **V1 data**: `V1/data/` (pre-processed datasets and trained models)
 - **V2 library**: `V2/robust_mpc/` (production-ready modules)
+- **V2 configuration**: `V2/config.yaml`, `V2/pyproject.toml`, `V2/Dockerfile`
 - **V3 services**: `V3/services/` (microservice implementations)
-- **Configuration**: `V2/config.yaml`, `V2/Dockerfile`
 - **Documentation**: Version-specific README files and DESIGN_DOCUMENT.md files
+
+## Central Environment Setup
+
+### Configuration Achievements
+The project has been successfully migrated to a unified central environment with the following key improvements:
+
+#### Enhanced Central Configuration (`pyproject.toml`)
+- **Package discovery**: Added `V3.src.autopharm_core` to setuptools packages
+- **Missing dependencies**: Added `joblib`, `scipy`, `typing-extensions`
+- **License standardization**: Fixed format to PEP 639 standard (`CC-BY-NC-SA-4.0`)
+- **Python version consistency**: Updated to Python 3.12 across all configurations
+- **Tool harmonization**: Updated black (py312), mypy (3.12), coverage (all versions)
+- **Test path expansion**: Includes `V1/tests`, `V2/tests`, `V3/tests`
+
+#### License Format Resolution
+- **V2 compatibility**: Fixed `V2/pyproject.toml` license format conflicts
+- **Installation success**: Resolved central package installation issues
+- **Standard compliance**: All configurations now follow PEP 639 licensing format
+
+#### Module Discovery and Imports
+- ✅ **V1.src modules**: `plant_simulator`, `model_architecture`, `mpc_controller`, `dataset`
+- ✅ **V2.robust_mpc modules**: `core`, `models`, `estimators`, `optimizers`
+- ✅ **V3.src.autopharm_core modules**: `control`, `learning`, `rl`, `xai`
+- ✅ **Cross-version imports**: All inter-module dependencies working correctly
+
+#### Development Tools Integration
+- ✅ **Testing framework**: `pytest` across all versions with coverage reporting
+- ✅ **Code formatting**: `black` and `isort` working on V1/, V2/, V3/
+- ✅ **Type checking**: `mypy` configured for Python 3.12 across all versions
+- ✅ **Dependency management**: `uv` with unified package installation
+
+### Current Working Environment Status
+```bash
+# Environment verification (from project root)
+source .venv/bin/activate
+python -c "
+import sys
+print(f'Python: {sys.version}')
+
+# Test all module imports
+import V1.src.plant_simulator
+import V2.robust_mpc.core  
+import V3.src.autopharm_core
+print('✅ All modules discoverable')
+
+# Test cross-version imports
+from V1.src import plant_simulator
+from V2.robust_mpc import models
+print('✅ Cross-version imports working')
+"
+```
+
+### Migration Benefits
+1. **Simplified workflow**: Single environment activation for all development tasks
+2. **Consistent dependencies**: No version conflicts between V1, V2, V3 environments
+3. **Improved testing**: Unified test execution across all project versions
+4. **Enhanced CI/CD**: Single environment setup for automated workflows
+5. **Developer experience**: Reduced context switching and setup complexity
+
+### Technical Resolutions Achieved
+During the central environment setup, several critical technical issues were resolved:
+
+#### Package Configuration Issues
+- **License classifier conflicts**: Resolved incompatible license formats between central and V2 configurations
+- **Missing package discovery**: Fixed setuptools package finding for V3 autopharm_core modules
+- **Dependency gaps**: Added missing dependencies (joblib, scipy, typing-extensions) that caused import failures
+- **Python version mismatches**: Harmonized Python 3.12 requirements across all tool configurations
+
+#### Installation and Import Problems
+- **CLI script conflicts**: Removed problematic console_scripts that caused packaging issues
+- **Module path resolution**: Fixed import paths for cross-version module dependencies
+- **Package namespace conflicts**: Resolved setuptools package discovery conflicts
+- **Environment isolation**: Ensured clean central environment without version-specific conflicts
+
+#### Development Tool Integration
+- **Test discovery**: Configured pytest to find tests across V1/, V2/, V3/ directories
+- **Coverage reporting**: Updated coverage configuration to include all three versions
+- **Code quality tools**: Harmonized black, mypy, isort configurations for consistent code style
+- **Command execution**: Verified all development commands work from central environment
+
+This central environment setup provides a robust foundation for continued development across all three versions of the PharmaControl system.
 
 ## Documentation Standards
 
