@@ -187,6 +187,12 @@ When adding new features:
 5. Follow established docstring standards for all new code
 6. Ensure cross-version compatibility when importing modules
 
+### V2 Configuration Options
+**Verbose Flag**: Control validation logging in RobustMPCController
+- `config['verbose'] = False` (default): Silent operation for production
+- `config['verbose'] = True`: Enable detailed validation logging for development
+- Prevents log spam in high-frequency deployments
+
 ### Important File Locations
 - **Central configuration**: `pyproject.toml` (unified package and dependency management)
 - **Central environment**: `.venv/` (Python 3.12.3 with all versions and tools)
