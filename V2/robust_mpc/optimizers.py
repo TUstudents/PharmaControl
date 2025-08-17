@@ -88,6 +88,14 @@ class GeneticOptimizer:
         - Suitable for non-differentiable and multi-modal objective functions
     """
     def __init__(self, fitness_function, param_bounds, config):
+        # Validate input types
+        if not callable(fitness_function):
+            raise TypeError("fitness_function must be callable")
+        if not isinstance(param_bounds, list):
+            raise TypeError("param_bounds must be a list")
+        if not isinstance(config, dict):
+            raise TypeError("config must be a dictionary")
+            
         self.fitness_function = fitness_function
         self.param_bounds = param_bounds # List of (min, max) for each gene
         self.config = config
@@ -98,6 +106,12 @@ class GeneticOptimizer:
         
         # Clean up any existing DEAP creators to prevent conflicts
         self._cleanup_deap_creators()
+
+        # Synchronize RNGs: if the user seeded numpy beforehand (np.random.seed(...)),
+        # derive a seed for the Python `random` module so DEAP and other code using
+        # the stdlib random become deterministic with the same numpy seed.
+        # If an explicit seed is provided in config under 'seed', use that for both.
+        self._sync_rngs()
 
         # --- DEAP Toolbox Setup ---
         # 1. Define the fitness objective (minimizing a single value)
@@ -118,7 +132,32 @@ class GeneticOptimizer:
         self.toolbox.register("evaluate", self._evaluate)
         self.toolbox.register("mate", self._mate_with_bounds)
         self.toolbox.register("mutate", self._mutate_with_bounds)
-        self.toolbox.register("select", tools.selTournament, tournsize=3)
+        tournsize = self.config.get('tournament_size', 3)
+        self.toolbox.register("select", tools.selTournament, tournsize=tournsize)
+
+    def _sync_rngs(self):
+        """Ensure Python's `random` is seeded consistently with NumPy or explicit config.
+
+        Behavior:
+        - If config contains 'seed', seed both numpy and random with it.
+        - Otherwise, draw a reproducible integer from numpy's RNG and seed random
+          with that value. This makes code that calls `np.random.seed(...)` before
+          constructing the optimizer also control the stdlib random (and therefore
+          DEAP which uses it), improving reproducibility for tests.
+        """
+        if 'seed' in self.config and self.config['seed'] is not None:
+            seed = int(self.config['seed'])
+            np.random.seed(seed)
+            random.seed(seed)
+        else:
+            # Draw from numpy's RNG to produce a seed for the stdlib random.
+            # Use a 32-bit unsigned range to be safe for random.seed
+            try:
+                seed = int(np.random.randint(0, 2**31 - 1))
+            except Exception:
+                # Fallback: use a fixed seed if numpy RNG is not available for any reason
+                seed = 0
+            random.seed(seed)
 
     def _create_individual(self):
         """Create a complete individual with position-specific parameter bounds.
@@ -143,9 +182,23 @@ class GeneticOptimizer:
             if key not in self.config:
                 raise ValueError(f"Missing required config key: {key}")
         
+        # Validate non-zero positive values
+        if self.config['horizon'] <= 0:
+            raise ValueError("horizon must be greater than 0")
+        if self.config['num_cpps'] <= 0:
+            raise ValueError("num_cpps must be greater than 0")
+        if self.config['population_size'] <= 0:
+            raise ValueError("population_size must be greater than 0")
+        if self.config['num_generations'] <= 0:
+            raise ValueError("num_generations must be greater than 0")
+            
         expected_params = self.config['horizon'] * self.config['num_cpps']
         if len(self.param_bounds) != expected_params:
             raise ValueError(f"Parameter bounds length {len(self.param_bounds)} != expected {expected_params}")
+        
+        # Validate param_bounds is not empty when expected_params > 0
+        if expected_params > 0 and not self.param_bounds:
+            raise ValueError("param_bounds cannot be empty when horizon and num_cpps are greater than 0")
     
     def _cleanup_deap_creators(self):
         """Clean up existing DEAP creator classes to prevent conflicts."""

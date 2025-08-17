@@ -243,9 +243,9 @@ class TestBoundManagement:
         
         # Check specific clipping
         for i in range(0, len(individual), 3):
-            assert repaired[i] == 80.0,   # Clipped to spray_rate lower bound
-            assert repaired[i+1] == 700.0,  # Clipped to air_flow upper bound
-            assert repaired[i+2] == 25.0    # Should remain unchanged (within bounds)
+            assert repaired[i] == 80.0   # Clipped to spray_rate lower bound
+            assert repaired[i+1] == 700.0  # Clipped to air_flow upper bound
+            assert repaired[i+2] == 25.0   # Should remain unchanged (within bounds)
             
     def test_check_bounds_boundary_values(self, simple_ga_config, simple_param_bounds, quadratic_fitness_function):
         """Test bound checking with values exactly at boundaries."""

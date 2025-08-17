@@ -39,6 +39,13 @@ class PositionalEncoding(nn.Module):
         x = x + self.pe[:, :x.size(1)]
         return self.dropout(x)
 
+class BayesianTransformer:
+    """Bayesian Neural Network Transformer for pharmaceutical process prediction."""
+    
+    def __init__(self):
+        raise NotImplementedError("BayesianTransformer is planned for future implementation")
+
+
 class ProbabilisticTransformer(nn.Module):
     """Transformer-based probabilistic neural network for pharmaceutical process prediction.
     

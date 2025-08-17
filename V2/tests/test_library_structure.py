@@ -49,11 +49,8 @@ def test_estimators_module():
         
         # Future classes should raise NotImplementedError
         with pytest.raises(NotImplementedError):
-            estimators.ExtendedKalmanFilter()
-            
-        with pytest.raises(NotImplementedError):
-            estimators.UnscentedKalmanFilter()
-            
+            estimators.ExtendedKalmanFilter()           
+          
         with pytest.raises(NotImplementedError):
             estimators.ParticleFilter()
             

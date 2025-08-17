@@ -95,7 +95,7 @@ docs = [
 
 # Full installation (all optional dependencies)
 full = [
-    "pharmacontrol[dev,notebooks,docs]"
+    "pharmacontrol[testing,notebooks,docs]"
 ]
 
 # Version-specific dependencies

@@ -1,6 +1,13 @@
 import numpy as np
 from pykalman import KalmanFilter
 
+class ExtendedKalmanFilter:
+    """Extended Kalman Filter for nonlinear pharmaceutical process state estimation."""
+    
+    def __init__(self):
+        raise NotImplementedError("ExtendedKalmanFilter is planned for future implementation")
+
+
 class KalmanStateEstimator:
     """Standard Kalman Filter for pharmaceutical process state estimation.
     
