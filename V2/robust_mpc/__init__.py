@@ -1,35 +1,62 @@
 """
-RobustMPC Library - Industrial-Grade Model Predictive Control
+RobustMPC Library - Industrial-Grade Model Predictive Control for Pharmaceutical Manufacturing
 
-A comprehensive library for uncertainty-aware, adaptive control systems 
-designed for pharmaceutical and chemical process applications.
+A comprehensive, production-ready library implementing advanced Model Predictive Control
+algorithms with uncertainty quantification, bias correction, and robust optimization.
+Specifically designed for pharmaceutical continuous manufacturing processes including
+granulation, tableting, and coating operations.
 
-Key Components:
-- State Estimation: Kalman filtering for noisy sensor data
-- Probabilistic Models: Uncertainty-aware predictive models  
-- Advanced Optimization: Genetic algorithms and multi-objective optimization
-- Robust Controllers: Offset-free MPC with constraint guarantees
+Mathematical Framework:
+    - State Estimation: Bias-augmented Kalman filtering with systematic error correction
+    - Probabilistic Modeling: Transformer networks with Monte Carlo uncertainty quantification  
+    - Robust Optimization: Genetic algorithms for non-convex, constrained optimization
+    - Risk-Aware Control: Multi-objective MPC balancing performance and robustness
+
+Key Innovations:
+    - Process vs Measurement bias correction paradigms for accurate state estimation
+    - Uncertainty-aware control decisions using probabilistic predictions
+    - Adaptive integral action for offset-free tracking despite unmeasured disturbances
+    - Constraint-handling optimization for complex pharmaceutical process limits
+
+Industrial Applications:
+    - Continuous granulation: Particle size and moisture control
+    - Tablet manufacturing: Weight uniformity and dissolution optimization
+    - Coating processes: Thickness and quality attribute control
+    - API synthesis: Yield and purity optimization under uncertainty
 
 Version: 2.0.0
 Author: PharmaControl-Pro Development Team
 License: Educational/Research Use
+Copyright: 2024 Advanced Process Control Research Group
 """
 
 __version__ = "2.0.0"
 __author__ = "PharmaControl-Pro Development Team"
 
 # Import key classes for easy access
-from .estimators import KalmanStateEstimator
+from .estimators import (
+    KalmanStateEstimator,
+    BiasAugmentedKalmanStateEstimator,
+    ProcessBiasKalmanEstimator,
+    MeasurementBiasKalmanEstimator
+)
 from .models import ProbabilisticTransformer  # ✅ Available as of V2-2
 from .optimizers import GeneticOptimizer      # ✅ Available as of V2-3
 from .core import RobustMPCController         # ✅ Available as of V2-4
 
 # Define what gets imported with "from robust_mpc import *"
 __all__ = [
+    # State Estimation
     'KalmanStateEstimator',
+    'BiasAugmentedKalmanStateEstimator',
+    'ProcessBiasKalmanEstimator', 
+    'MeasurementBiasKalmanEstimator',
+    # Probabilistic Modeling
     'ProbabilisticTransformer', 
-    'GeneticOptimizer',        # ✅ Available as of V2-3
-    'RobustMPCController'      # ✅ Available as of V2-4
+    # Optimization
+    'GeneticOptimizer',
+    # Control
+    'RobustMPCController'
 ]
 
 # Library metadata

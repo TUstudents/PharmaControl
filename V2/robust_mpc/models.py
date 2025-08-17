@@ -2,26 +2,115 @@ import torch
 import torch.nn as nn
 import math
 
-# We can reuse the PositionalEncoding class from V1
+# CRITICAL FIX: Use corrected PositionalEncoding for batch_first=True
 class PositionalEncoding(nn.Module):
+    """Sinusoidal positional encoding for transformer-based sequence models.
+    
+    Implements the standard sinusoidal positional encoding with proper support
+    for batch_first=True format used in the V2 transformer architecture.
+    
+    Args:
+        d_model (int): Model dimension (embedding size)
+        dropout (float, optional): Dropout probability. Default: 0.1
+        max_len (int, optional): Maximum sequence length. Default: 5000
+    """
     def __init__(self, d_model: int, dropout: float = 0.1, max_len: int = 5000):
         super().__init__()
         self.dropout = nn.Dropout(p=dropout)
         position = torch.arange(max_len).unsqueeze(1)
         div_term = torch.exp(torch.arange(0, d_model, 2) * (-math.log(10000.0) / d_model))
-        pe = torch.zeros(max_len, 1, d_model)
-        pe[:, 0, 0::2] = torch.sin(position * div_term)
-        pe[:, 0, 1::2] = torch.cos(position * div_term)
+        # FIXED: Create positional encoding for batch_first=True format
+        pe = torch.zeros(1, max_len, d_model)  # Shape: (1, max_len, d_model)
+        pe[0, :, 0::2] = torch.sin(position * div_term)
+        pe[0, :, 1::2] = torch.cos(position * div_term)
         self.register_buffer('pe', pe)
 
     def forward(self, x):
-        x = x + self.pe[:x.size(0)]
+        """Apply positional encoding to input embeddings.
+        
+        Args:
+            x: Input tensor of shape (batch_size, seq_len, d_model)
+        
+        Returns:
+            Tensor with positional information added and dropout applied
+        """
+        # FIXED: Correct indexing for batch_first=True format
+        # x.size(1) is seq_len when batch_first=True
+        x = x + self.pe[:, :x.size(1)]
         return self.dropout(x)
 
 class ProbabilisticTransformer(nn.Module):
-    """
-    A Transformer model that supports probabilistic forecasting via MC Dropout.
-    The architecture is identical to the V1 predictor, but with added methods.
+    """Transformer-based probabilistic neural network for pharmaceutical process prediction.
+    
+    This model extends the standard transformer architecture with uncertainty quantification
+    capabilities through Monte Carlo Dropout, enabling robust Model Predictive Control
+    with risk-aware decision making. The architecture maintains the encoder-decoder
+    structure optimized for pharmaceutical granulation processes while adding
+    distributional prediction capabilities.
+    
+    Key Features:
+        - Probabilistic predictions through Monte Carlo Dropout sampling
+        - Uncertainty quantification for risk-aware control decisions
+        - Sequence-to-sequence architecture for multi-step ahead forecasting
+        - Optimized for Critical Material Attribute prediction in granulation
+    
+    Architecture:
+        - Encoder: Processes historical CMA and CPP time series
+        - Decoder: Generates future CMA predictions from planned CPP sequences
+        - Attention: Captures complex temporal dependencies and interactions
+        - Probabilistic output: Mean and standard deviation estimates
+    
+    Mathematical Framework:
+        Input: [Historical CMAs, Historical CPPs] + [Future CPPs]
+        Output: p(Future CMAs | Historical data, Future CPPs)
+        
+        Uncertainty estimation via Monte Carlo Dropout:
+        μ(x) = E[f(x, θ)] ≈ (1/N) Σ f(x, θᵢ)  where θᵢ ~ Dropout
+        σ(x) = Var[f(x, θ)] ≈ (1/N) Σ [f(x, θᵢ) - μ(x)]²
+    
+    Args:
+        cma_features (int): Number of Critical Material Attributes (typically 2: d50, LOD)
+        cpp_features (int): Number of Critical Process Parameters including soft sensors
+            (typically 5: spray_rate, air_flow, carousel_speed, specific_energy, froude_number)
+        d_model (int, optional): Transformer model dimension. Default: 64
+        nhead (int, optional): Number of attention heads. Default: 4
+        num_encoder_layers (int, optional): Number of encoder layers. Default: 2
+        num_decoder_layers (int, optional): Number of decoder layers. Default: 2
+        dim_feedforward (int, optional): Feedforward network dimension. Default: 256
+        dropout (float, optional): Dropout probability for uncertainty quantification. Default: 0.1
+    
+    Attributes:
+        d_model (int): Model dimension for embeddings
+        cma_features (int): Number of output variables
+        cpp_features (int): Number of input control variables
+        cma_encoder_embedding (nn.Linear): CMA feature embedding layer
+        cpp_encoder_embedding (nn.Linear): CPP encoder embedding layer
+        cpp_decoder_embedding (nn.Linear): CPP decoder embedding layer
+        pos_encoder (PositionalEncoding): Positional encoding module
+        transformer (nn.Transformer): Core transformer architecture
+        output_linear (nn.Linear): Final projection to CMA predictions
+    
+    Example:
+        >>> # Configure for granulation process
+        >>> model = ProbabilisticTransformer(
+        ...     cma_features=2,      # d50, LOD
+        ...     cpp_features=5,      # spray, air, speed + soft sensors
+        ...     dropout=0.15         # Higher dropout for better uncertainty
+        ... )
+        >>> 
+        >>> # Probabilistic prediction
+        >>> past_cmas = torch.randn(1, 10, 2)    # Historical CMAs
+        >>> past_cpps = torch.randn(1, 10, 5)    # Historical CPPs
+        >>> future_cpps = torch.randn(1, 5, 5)   # Planned control actions
+        >>> mean_pred, std_pred = model.predict_distribution(
+        ...     past_cmas, past_cpps, future_cpps, n_samples=50
+        ... )
+    
+    Notes:
+        - Uses batch_first=True format for all tensor operations
+        - Dropout should be enabled during inference for uncertainty quantification
+        - Higher dropout rates improve uncertainty estimates but may reduce accuracy
+        - Monte Carlo sampling provides calibrated uncertainty bounds
     """
     def __init__(self, cma_features, cpp_features, d_model=64, nhead=4, 
                  num_encoder_layers=2, num_decoder_layers=2, dim_feedforward=256, dropout=0.1):

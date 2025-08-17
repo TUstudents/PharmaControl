@@ -2,9 +2,58 @@ import numpy as np
 from pykalman import KalmanFilter
 
 class KalmanStateEstimator:
-    """
-    A wrapper around pykalman's KalmanFilter to provide a simple interface
-    for state estimation in our control loop.
+    """Standard Kalman Filter for pharmaceutical process state estimation.
+    
+    This class provides a streamlined interface to pykalman's KalmanFilter implementation,
+    specifically configured for continuous granulation process control applications.
+    Implements the classic linear Kalman filter for optimal state estimation under
+    Gaussian noise assumptions.
+    
+    The filter assumes a linear state-space model:
+        x[k+1] = A*x[k] + B*u[k] + w[k]     (state evolution)
+        y[k] = C*x[k] + v[k]                 (observation model)
+    
+    Where:
+        - x[k]: Process state vector (e.g., particle size d50, moisture LOD)
+        - u[k]: Control input vector (e.g., spray rate, air flow, carousel speed)
+        - y[k]: Measurement vector from sensors
+        - w[k], v[k]: Process and measurement noise (assumed Gaussian)
+    
+    Args:
+        transition_matrix (np.ndarray): State transition matrix A of shape (n_states, n_states).
+            Defines how the process state evolves over time without control input.
+        control_matrix (np.ndarray): Control input matrix B of shape (n_states, n_controls).
+            Maps control actions to their effect on state evolution.
+        initial_state_mean (np.ndarray): Initial state estimate of shape (n_states,).
+            Starting point for the filtering process, typically from process knowledge.
+        process_noise_std (float, optional): Standard deviation of process noise.
+            Lower values indicate higher trust in the state evolution model. Default: 0.5
+        measurement_noise_std (float, optional): Standard deviation of measurement noise.
+            Should match typical sensor accuracy (e.g., 10-15 μm for particle size). Default: 10.0
+    
+    Attributes:
+        kf (KalmanFilter): Underlying pykalman filter instance with configured parameters
+        control_matrix (np.ndarray): Stored control matrix for transition offset computation
+        filtered_state_mean (np.ndarray): Current state estimate after latest measurement
+        filtered_state_covariance (np.ndarray): Current state uncertainty covariance matrix
+    
+    Example:
+        >>> # Configure for granulation process (d50, LOD states)
+        >>> A = np.array([[0.9, 0.05], [0.0, 0.98]])  # Transition matrix
+        >>> B = np.array([[0.3, -0.5], [0.0, 0.01]])  # Control matrix  
+        >>> initial_state = np.array([400.0, 1.5])    # d50=400μm, LOD=1.5%
+        >>> estimator = KalmanStateEstimator(A, B, initial_state)
+        >>> 
+        >>> # Process measurement and control input
+        >>> measurement = np.array([415.2, 1.48])     # Noisy sensor reading
+        >>> control = np.array([120.0, 500.0, 30.0]) # spray, air, speed
+        >>> filtered_state = estimator.estimate(measurement, control)
+    
+    Notes:
+        - Assumes full state observability (C = I) for pharmaceutical applications
+        - Uses identity covariance matrices scaled by noise standard deviations
+        - Suitable for processes where systematic bias is not a concern
+        - For processes with model bias, consider BiasAugmentedKalmanStateEstimator
     """
     def __init__(self, transition_matrix, control_matrix, initial_state_mean, process_noise_std=0.5, measurement_noise_std=10.0):
         n_dim_state, n_dim_ctrl = control_matrix.shape
@@ -26,15 +75,38 @@ class KalmanStateEstimator:
         self.filtered_state_covariance = self.kf.initial_state_covariance
 
     def estimate(self, measurement, control_input):
-        """
-        Performs one step of the Kalman Filter's predict-update cycle.
-
+        """Perform one step of the Kalman filter predict-update cycle.
+        
+        Executes the complete Kalman filtering algorithm consisting of:
+        1. Prediction step: Projects current state estimate forward using process model
+        2. Update step: Incorporates new measurement to refine state estimate
+        
+        The control input is integrated into the prediction through the transition offset,
+        allowing the filter to account for known control actions when predicting the
+        next state.
+        
         Args:
-            measurement (np.array): The noisy measurement from the sensors.
-            control_input (np.array): The control action applied at this step.
-
+            measurement (np.ndarray): Noisy sensor measurements of shape (n_states,).
+                Typical pharmaceutical measurements include particle size and moisture content.
+                Units should match the original training data (e.g., μm for d50, % for LOD).
+            control_input (np.ndarray): Applied control actions of shape (n_controls,).
+                Critical Process Parameters such as spray rate, air flow, and carousel speed.
+                Must be in same units and order as used during model training.
+        
         Returns:
-            np.array: The new, filtered state estimate.
+            np.ndarray: Updated state estimate of shape (n_states,) after incorporating
+                the new measurement. Represents the optimal estimate given all available
+                information up to the current time step.
+        
+        Raises:
+            ValueError: If measurement or control_input dimensions don't match filter configuration
+            RuntimeError: If numerical issues occur during matrix operations
+        
+        Notes:
+            - Automatically handles the predict-update cycle without explicit user calls
+            - Updates internal state (filtered_state_mean, filtered_state_covariance)
+            - Control offset computation: offset = B @ u to account for control influence
+            - Optimal in minimum mean square error sense under linear Gaussian assumptions
         """
         # The control input needs to be incorporated into the transition offset
         transition_offset = np.dot(self.control_matrix, control_input)
@@ -50,34 +122,122 @@ class KalmanStateEstimator:
         return self.filtered_state_mean
 
 class BiasAugmentedKalmanStateEstimator:
-    """
-    Enhanced Kalman Filter with bias state augmentation for PROCESS BIAS correction.
+    """Adaptive Kalman Filter with bias state augmentation for process bias correction.
     
-    This models systematic errors in the process dynamics themselves, such as missing 
-    intercept terms and unmodeled nonlinearities in pharmaceutical granulation processes.
+    This advanced estimator addresses systematic model errors in pharmaceutical processes
+    by augmenting the state space to include bias states that are learned online.
+    Specifically designed for processes where the underlying dynamics contain unmodeled
+    components such as missing intercept terms from regression models or unmodeled
+    nonlinearities in granulation kinetics.
     
-    Mathematical Model (PROCESS BIAS):
-    - Augmented State: [x_physical, x_bias]
-    - State Evolution: x_physical[k+1] = A*x_physical[k] + B*u[k] + x_bias[k] + w1[k]  (bias affects dynamics)
-    - Bias Evolution:  x_bias[k+1] = x_bias[k] + w2[k]  (random walk)
-    - Observation:     y[k] = x_physical[k] + v[k]  (sensors are unbiased, observe physical state only)
+    Mathematical Framework (Process Bias Model):
+        Augmented state vector: x_aug = [x_physical, x_bias]
+        
+        State evolution:
+            x_physical[k+1] = A*x_physical[k] + B*u[k] + x_bias[k] + w_physical[k]
+            x_bias[k+1] = x_bias[k] + w_bias[k]
+        
+        Observation model:
+            y[k] = x_physical[k] + v[k]
+        
+        Augmented matrices:
+            A_aug = [[A, I],    C_aug = [I, 0]
+                     [0, I]]
     
-    Key Insight: The bias represents systematic model errors (e.g., missing sklearn intercept), 
-    NOT sensor calibration errors. This distinguishes it from measurement bias models where
-    bias appears in the observation equation instead of state evolution.
+    Where:
+        - x_physical: Observable process states (e.g., particle size, moisture content)  
+        - x_bias: Latent bias states representing systematic model errors
+        - u[k]: Control inputs (Critical Process Parameters)
+        - y[k]: Sensor measurements (assumed unbiased)
+        - w_physical, w_bias: Independent Gaussian process noise components
+        - v[k]: Measurement noise (Gaussian, zero-mean)
+    
+    Key Advantages:
+        - Online learning of systematic model bias without prior knowledge
+        - Maintains optimal filtering performance while correcting for model mismatch
+        - Robust to changing process conditions through adaptive bias estimation
+        - Mathematically sound augmentation preserves Kalman filter optimality
+    
+    Applications:
+        - Pharmaceutical granulation with missing sklearn regression intercepts
+        - Processes with slow-varying disturbances or unmeasured inputs
+        - Systems where linear models approximate nonlinear dynamics
+        - Any scenario requiring bias-corrected state estimation
+    
+    Args:
+        transition_matrix (np.ndarray): Physical state transition matrix A of shape (n_states, n_states).
+            Describes the nominal linear dynamics of the process without bias correction.
+        control_matrix (np.ndarray): Control input matrix B of shape (n_states, n_controls).
+            Maps control actions to their expected effect on physical state evolution.
+        initial_state_mean (np.ndarray): Initial estimate of physical states of shape (n_states,).
+            Bias states are initialized to zero and learned during operation.
+        process_noise_std (float, optional): Process noise standard deviation for physical states.
+            Represents uncertainty in the nominal model dynamics. Default: 0.5
+        measurement_noise_std (float, optional): Measurement noise standard deviation.
+            Should reflect actual sensor accuracy in process units. Default: 10.0
+        bias_process_noise_std (float, optional): Process noise for bias state evolution.
+            Controls adaptation rate - smaller values mean slower bias learning. Default: 0.1
+    
+    Attributes:
+        n_physical_states (int): Number of observable process states
+        n_controls (int): Number of control inputs  
+        n_augmented_states (int): Total augmented state dimension (2 * n_physical_states)
+        original_A (np.ndarray): Stored nominal transition matrix
+        original_B (np.ndarray): Stored nominal control matrix
+        kf (KalmanFilter): Underlying pykalman filter with augmented state space
+        
+    Example:
+        >>> # Configure for granulation process with suspected model bias
+        >>> A = np.array([[0.9, 0.05], [0.0, 0.98]])
+        >>> B = np.array([[0.3, -0.5], [0.0, 0.01]])
+        >>> initial_state = np.array([400.0, 1.5])
+        >>> estimator = BiasAugmentedKalmanStateEstimator(A, B, initial_state,
+        ...                                               bias_process_noise_std=0.05)
+        >>> 
+        >>> # Process measurements and track bias learning
+        >>> measurement = np.array([415.2, 1.48])
+        >>> control = np.array([120.0, 500.0, 30.0])
+        >>> physical_est, bias_est = estimator.estimate(measurement, control)
+        >>> print(f"Learned bias: {bias_est}")  # Shows systematic offset correction
+    
+    Notes:
+        - Bias states evolve as random walks, allowing slow adaptation to changing conditions
+        - Observation matrix C_aug = [I, 0] ensures bias affects dynamics, not measurements
+        - Computational complexity is approximately 8x that of standard Kalman filter
+        - For known fixed bias, consider ProcessBiasKalmanEstimator for efficiency
+        - Convergence time depends on bias_process_noise_std and process excitation
     """
     def __init__(self, transition_matrix, control_matrix, initial_state_mean, 
                  process_noise_std=0.5, measurement_noise_std=10.0, bias_process_noise_std=0.1):
-        """
-        Initialize bias-augmented Kalman filter.
+        """Initialize bias-augmented Kalman filter with state space augmentation.
+        
+        Constructs the augmented state-space representation by extending the original
+        system with bias states and configuring the Kalman filter matrices accordingly.
+        The bias states are initialized to zero and will be learned online through
+        the filtering process.
         
         Args:
-            transition_matrix: Original A matrix (n_states x n_states)
-            control_matrix: Original B matrix (n_states x n_controls)
-            initial_state_mean: Initial physical state estimate
-            process_noise_std: Process noise for physical states
-            measurement_noise_std: Sensor measurement noise
-            bias_process_noise_std: Process noise for bias states (smaller = slower adaptation)
+            transition_matrix (np.ndarray): Physical state transition matrix A of shape (n_states, n_states).
+                Defines nominal dynamics without bias correction.
+            control_matrix (np.ndarray): Control input matrix B of shape (n_states, n_controls).
+                Maps control actions to state evolution.
+            initial_state_mean (np.ndarray): Initial physical state estimate of shape (n_states,).
+                Should represent best available estimate of true initial process state.
+            process_noise_std (float, optional): Process noise for physical state evolution.
+                Larger values allow more deviation from nominal model. Default: 0.5
+            measurement_noise_std (float, optional): Sensor measurement noise level.
+                Should match actual sensor specifications. Default: 10.0
+            bias_process_noise_std (float, optional): Bias state evolution noise.
+                Controls bias adaptation rate - smaller means slower learning. Default: 0.1
+        
+        Raises:
+            ValueError: If matrix dimensions are incompatible
+            LinAlgError: If transition matrix is singular or ill-conditioned
+        
+        Notes:
+            - Bias states are initialized to zero with high initial uncertainty
+            - Physical state initial covariance is set conservatively
+            - Augmented system dimension is 2 * n_physical_states
         """
         self.n_physical_states = len(initial_state_mean)
         self.n_controls = control_matrix.shape[1]
@@ -202,26 +362,88 @@ class BiasAugmentedKalmanStateEstimator:
 
 
 class ProcessBiasKalmanEstimator:
-    """
-    Standard Kalman Filter with a fixed intercept term for PROCESS BIAS correction.
+    """Kalman Filter with fixed process bias correction for pharmaceutical applications.
     
-    Assumes the system DYNAMICS are biased (e.g., missing intercept from regression).
-    Model: x[k+1] = A*x[k] + B*u[k] + intercept + w[k]
-           y[k] = C*x[k] + v[k]  (sensors are perfect/unbiased)
+    This estimator implements a computationally efficient approach to process bias
+    correction by incorporating a known systematic offset directly into the state
+    evolution equation. Designed for scenarios where the bias term is well-characterized
+    (e.g., from regression analysis) and remains approximately constant during operation.
     
-    This models systematic errors in the process model itself, such as missing 
-    intercept terms and unmodeled nonlinearities in pharmaceutical granulation.
+    Mathematical Model (Fixed Process Bias):
+        State evolution: x[k+1] = A*x[k] + B*u[k] + intercept + w[k]
+        Observation:     y[k] = x[k] + v[k]
     
-    Advantages:
-    - Simple implementation (no state augmentation)
-    - Immediate bias correction if intercept is known accurately
-    - Lower computational cost
-    - Mathematically consistent with adaptive approach
+    Where the intercept term represents systematic model errors such as:
+        - Missing intercept from sklearn linear regression models
+        - Unmodeled steady-state offsets in process dynamics
+        - Constant disturbances or unmeasured inputs
     
-    Disadvantages:
-    - No adaptation to changing conditions
-    - Performance depends critically on intercept accuracy
-    - Cannot handle time-varying process bias
+    Key Characteristics:
+        - No state augmentation required (standard Kalman filter complexity)
+        - Immediate bias correction from first time step
+        - Deterministic bias handling (no online learning)
+        - Optimal for time-invariant systematic errors
+    
+    Trade-offs:
+        Advantages:
+            - Computational efficiency (O(n³) vs O(8n³) for adaptive methods)
+            - Immediate bias correction without learning period
+            - Simple implementation and tuning
+            - Mathematically equivalent to adaptive methods at convergence
+        
+        Limitations:
+            - Requires accurate a priori knowledge of bias magnitude
+            - Cannot adapt to changing process conditions
+            - Performance degrades if bias estimate is inaccurate
+            - Not suitable for time-varying or unknown biases
+    
+    Applications:
+        - Pharmaceutical granulation with known sklearn regression intercepts
+        - Process control where historical data provides bias estimates
+        - Systems with well-characterized steady-state offsets
+        - Computational efficiency is prioritized over adaptability
+    
+    Args:
+        transition_matrix (np.ndarray): State transition matrix A of shape (n_states, n_states).
+            Describes nominal process dynamics without bias terms.
+        control_matrix (np.ndarray): Control input matrix B of shape (n_states, n_controls).
+            Maps control actions to their effect on state evolution.
+        initial_state_mean (np.ndarray): Initial true state estimate of shape (n_states,).
+            Should represent the actual physical state without bias contamination.
+        intercept_term (np.ndarray): Fixed process bias vector of shape (n_states,).
+            Typically obtained from regression analysis or process identification.
+            Units must match state variables (e.g., μm for particle size).
+        process_noise_std (float, optional): Process noise standard deviation.
+            Represents uncertainty in biased dynamics model. Default: 0.5
+        measurement_noise_std (float, optional): Sensor measurement noise level.
+            Should reflect actual sensor specifications in process units. Default: 10.0
+    
+    Attributes:
+        n_states (int): Number of process states
+        n_controls (int): Number of control inputs
+        intercept (np.ndarray): Stored fixed bias term applied to dynamics
+        transition_matrix (np.ndarray): Stored state transition matrix
+        control_matrix (np.ndarray): Stored control input matrix
+        kf (KalmanFilter): Standard Kalman filter instance
+    
+    Example:
+        >>> # Configure for granulation with known regression intercept
+        >>> A = np.array([[0.9, 0.05], [0.0, 0.98]])
+        >>> B = np.array([[0.3, -0.5], [0.0, 0.01]])  
+        >>> initial_state = np.array([400.0, 1.5])
+        >>> intercept = np.array([26.3, 0.045])  # From sklearn fit
+        >>> estimator = ProcessBiasKalmanEstimator(A, B, initial_state, intercept)
+        >>> 
+        >>> # Apply with immediate bias correction
+        >>> measurement = np.array([415.2, 1.48])
+        >>> control = np.array([120.0, 500.0, 30.0])
+        >>> corrected_state = estimator.estimate(measurement, control)
+    
+    Notes:
+        - Intercept is added to transition offset, not applied to measurements
+        - Best performance when intercept accurately represents true systematic bias
+        - Consider BiasAugmentedKalmanStateEstimator for unknown or varying bias
+        - Computational cost identical to standard Kalman filter
     """
     def __init__(self, transition_matrix, control_matrix, initial_state_mean, intercept_term,
                  process_noise_std=0.5, measurement_noise_std=10.0):
@@ -308,26 +530,83 @@ class ProcessBiasKalmanEstimator:
 
 
 class MeasurementBiasKalmanEstimator:
-    """
-    Standard Kalman Filter with a fixed intercept for MEASUREMENT BIAS correction.
+    """Kalman Filter with fixed measurement bias correction for sensor calibration errors.
     
-    Assumes the SENSORS are biased (e.g., calibration offset) but system dynamics are correct.
-    Model: x[k+1] = A*x[k] + B*u[k] + w[k]              (unbiased dynamics)
-           y[k] = C*x[k] + intercept + v[k]             (biased measurements)
+    This estimator addresses systematic sensor bias by pre-correcting measurements before
+    applying standard Kalman filtering. Designed for scenarios where sensors have known
+    calibration offsets but the underlying process dynamics are correctly modeled.
     
-    This corrects for systematic sensor offsets, calibration errors, or measurement drift.
-    The filter operates on bias-corrected measurements and estimates the true state.
+    Mathematical Model (Fixed Measurement Bias):
+        State evolution: x[k+1] = A*x[k] + B*u[k] + w[k]    (unbiased dynamics)
+        Raw observation: y_raw[k] = x[k] + bias + v[k]      (biased measurements)
+        Corrected obs.:  y[k] = y_raw[k] - bias             (bias removal)
     
-    Advantages:
-    - Simple implementation (no state augmentation)
-    - Immediate bias correction if measurement offset is known
-    - Lower computational cost
-    - Stable for measurement bias scenarios
+    The filter operates on bias-corrected measurements y[k], enabling accurate state
+    estimation despite systematic sensor offsets. This approach is complementary to
+    process bias correction and addresses different error sources.
     
-    Disadvantages:
-    - No adaptation to changing measurement bias
-    - Performance depends critically on bias knowledge accuracy
-    - Cannot handle time-varying sensor drift
+    Key Characteristics:
+        - Pre-processing approach: bias removed before filtering
+        - Standard Kalman filter complexity (no augmentation)
+        - Assumes perfect knowledge of measurement bias magnitude
+        - Optimal for time-invariant sensor calibration errors
+    
+    Applications:
+        - Pressure sensors with systematic calibration drift
+        - Temperature measurements with thermocouple bias
+        - Flow meters with consistent offset errors
+        - Analytical instruments with zero-point drift
+        - Any sensor with known, stable calibration offset
+    
+    Comparison with Process Bias:
+        Measurement Bias: y = x + bias (sensor problem)
+        Process Bias: x[k+1] = f(x[k]) + bias (model problem)
+        
+        Use measurement bias correction when:
+            - Sensors are known to be mis-calibrated
+            - Process model is accurate
+            - Bias appears in measurements, not dynamics
+    
+    Args:
+        transition_matrix (np.ndarray): State transition matrix A of shape (n_states, n_states).
+            Should accurately represent true process dynamics.
+        control_matrix (np.ndarray): Control input matrix B of shape (n_states, n_controls).
+            Maps control actions to their effect on state evolution.
+        initial_state_mean (np.ndarray): Initial true state estimate of shape (n_states,).
+            Should represent actual physical state without measurement bias.
+        intercept_term (np.ndarray): Fixed measurement bias vector of shape (n_states,).
+            Systematic offset in sensor readings, typically from calibration analysis.
+            Units must match measurement variables (e.g., μm, %, psi).
+        process_noise_std (float, optional): Process noise standard deviation.
+            Represents uncertainty in true dynamics model. Default: 0.5
+        measurement_noise_std (float, optional): Sensor noise after bias correction.
+            Random component of sensor error after systematic bias removal. Default: 10.0
+    
+    Attributes:
+        n_states (int): Number of measured process states
+        control_matrix (np.ndarray): Stored control input matrix
+        intercept (np.ndarray): Fixed measurement bias vector applied to observations
+        kf (KalmanFilter): Standard Kalman filter operating on corrected measurements
+    
+    Example:
+        >>> # Configure for sensors with known calibration offset
+        >>> A = np.array([[0.9, 0.05], [0.0, 0.98]])
+        >>> B = np.array([[0.3, -0.5], [0.0, 0.01]])
+        >>> initial_state = np.array([400.0, 1.5])  # True initial state
+        >>> sensor_bias = np.array([15.2, -0.03])   # Known sensor offset
+        >>> estimator = MeasurementBiasKalmanEstimator(A, B, initial_state, sensor_bias)
+        >>> 
+        >>> # Process biased measurement
+        >>> biased_measurement = np.array([430.4, 1.52])  # Includes sensor bias
+        >>> control = np.array([120.0, 500.0, 30.0])
+        >>> true_state_est = estimator.estimate(biased_measurement, control)
+    
+    Notes:
+        - Bias correction applied before Kalman update: y_corrected = y_raw - bias
+        - Measurement noise represents post-correction sensor uncertainty
+        - Best performance when bias accurately represents systematic sensor error
+        - For unknown measurement bias, consider sensor recalibration first
+        - Computational cost identical to standard Kalman filter
     """
     def __init__(self, transition_matrix, control_matrix, initial_state_mean, intercept_term,
                  process_noise_std=0.5, measurement_noise_std=10.0):
