@@ -385,8 +385,8 @@ class RobustMPCController:
         # Scale each CMA element using fitted scalers
         for i, col_name in enumerate(self.config['cma_names']):
             if i < len(vector_unscaled) and col_name in self.scalers:
-                # Reshape for scaler (expects 2D)
-                value_reshaped = vector_unscaled[i].reshape(1, -1)
+                # Convert scalar to 2D array for scaler (expects 2D)
+                value_reshaped = np.array([[vector_unscaled[i]]])
                 vector_scaled[i] = self.scalers[col_name].transform(value_reshaped).flatten()[0]
             else:
                 raise ValueError(f"Scaler for CMA '{col_name}' not found in scalers dict")
