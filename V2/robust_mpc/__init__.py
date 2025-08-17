@@ -40,6 +40,7 @@ from .estimators import (
     ProcessBiasKalmanEstimator,
     MeasurementBiasKalmanEstimator
 )
+from .data_buffer import DataBuffer, StartupHistoryGenerator
 # Lazy imports for PyTorch-dependent modules to avoid circular import issues
 import importlib
 import sys
@@ -114,6 +115,9 @@ __all__ = [
     'BiasAugmentedKalmanStateEstimator',
     'ProcessBiasKalmanEstimator', 
     'MeasurementBiasKalmanEstimator',
+    # Data Management
+    'DataBuffer',
+    'StartupHistoryGenerator',
     # Probabilistic Modeling
     'ProbabilisticTransformer', 
     # Optimization

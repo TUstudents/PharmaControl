@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+from .data_buffer import DataBuffer, StartupHistoryGenerator
 
 class RobustMPCController:
     """Advanced Model Predictive Controller for robust pharmaceutical process control.
@@ -120,6 +121,19 @@ class RobustMPCController:
         
         # Initialize fallback control action (safe defaults)
         self._last_successful_action = None
+        
+        # Initialize rolling history buffer for real trajectory tracking
+        buffer_size = config.get('history_buffer_size', max(100, 3 * config['lookback']))
+        self.history_buffer = DataBuffer(
+            cma_features=len(config['cma_names']),
+            cpp_features=len(config['cpp_names']),
+            buffer_size=buffer_size,
+            validate_sequence=True
+        )
+        
+        # Startup history generator for initial operation
+        self.startup_generator = None
+        self._initialization_complete = False
 
     def _update_disturbance_estimate(self, smooth_state, setpoint):
         """Updates the integral error term for offset-free control."""
@@ -169,23 +183,40 @@ class RobustMPCController:
 
         return fitness
 
-    def suggest_action(self, noisy_measurement, control_input, setpoint):
+    def suggest_action(self, noisy_measurement, control_input, setpoint, timestamp=None):
+        """Enhanced suggest_action with real history buffer integration.
+        
+        Args:
+            noisy_measurement (np.ndarray): Current CMA measurements with sensor noise
+            control_input (np.ndarray): Current CPP control inputs  
+            setpoint (np.ndarray): Target CMA setpoints
+            timestamp (float, optional): Unix timestamp for sequencing. If None, uses current time.
+            
+        Returns:
+            np.ndarray: Optimal control action for next time step
+        """
         # 1. Get a clean state estimate
         smooth_state = self.estimator.estimate(noisy_measurement, control_input)
 
-        # 2. Update the integral error term
+        # 2. Update history buffer with real data (critical for accurate predictions)
+        try:
+            self.history_buffer.add_measurement(smooth_state, timestamp)
+            self.history_buffer.add_control_action(control_input, timestamp)
+        except Exception as e:
+            if self.config.get('verbose', False):
+                print(f"Warning: Failed to update history buffer: {e}")
+
+        # 3. Update the integral error term
         self._update_disturbance_estimate(smooth_state, setpoint)
 
-        # 3. Create the fitness function for this specific time step
-        # This part requires getting the historical data, which we will simulate for the test.
-        # In a real app, this would come from a data buffer.
-        past_cmas_scaled, past_cpps_scaled = self._get_scaled_history(smooth_state)
+        # 4. Get historical data for model prediction (real or startup)
+        past_cmas_scaled, past_cpps_scaled = self._get_real_history()
 
-        # The target is the setpoint repeated over the horizon
+        # 5. Create the fitness function for this specific time step
         target_plan = np.tile(setpoint, (self.config['horizon'], 1))
         fitness_func = self._get_fitness_function(past_cmas_scaled, past_cpps_scaled, target_plan)
 
-        # 4. Instantiate and run the optimizer with error handling
+        # 6. Instantiate and run the optimizer with error handling
         param_bounds = self._get_param_bounds()
         
         try:
@@ -199,7 +230,7 @@ class RobustMPCController:
             # Store successful action for fallback
             self._last_successful_action = best_plan[0].copy()
             
-            # 5. Return the first step of the optimal plan
+            # 7. Return the first step of the optimal plan
             return best_plan[0]
             
         except Exception as e:
@@ -211,54 +242,78 @@ class RobustMPCController:
             return self._get_fallback_action(control_input)
 
     # --- Helper methods for scaling and data management ---
-    def _get_scaled_history(self, current_smooth_state):
-        """Get scaled historical data for model prediction.
+    def _get_real_history(self):
+        """Get real historical data from buffer or startup generator.
         
-        In a production system, this would pull from a rolling data buffer.
-        For testing, we create reasonable historical data based on current state.
+        This method replaces the previous mock history generation with actual
+        trajectory data, critical for accurate model predictions in MPC.
         
-        Args:
-            current_smooth_state (np.ndarray): Current filtered CMA state
-            
         Returns:
             tuple: (past_cmas_scaled, past_cpps_scaled) for model input
-        """
-        L = self.config['lookback']
-        
-        # Create reasonable CMA history with some variation around current state
-        # This simulates a process that has been operating near the current conditions
-        noise_scale = 0.05  # 5% variation in historical data
-        past_cmas_unscaled = np.zeros((L, len(current_smooth_state)))
-        
-        for i in range(L):
-            # Add small random variations to simulate realistic historical trajectory
-            variation = np.random.normal(0, noise_scale, size=current_smooth_state.shape)
-            past_cmas_unscaled[i] = current_smooth_state * (1 + variation)
             
-        # Create reasonable CPP history for pharmaceutical granulation process
-        # Use typical operating conditions as baseline
-        baseline_cpps = {
-            'spray_rate': 130.0,      # g/min - typical spray rate
-            'air_flow': 550.0,        # m³/h - typical air flow  
-            'carousel_speed': 30.0    # rpm - typical carousel speed
-        }
+        Raises:
+            ValueError: If unable to provide sufficient historical data
+        """
+        lookback = self.config['lookback']
         
-        past_cpps_unscaled = np.zeros((L, len(self.config['cpp_names'])))
-        
-        for i in range(L):
-            for j, cpp_name in enumerate(self.config['cpp_names']):
-                if cpp_name in baseline_cpps:
-                    # Add process noise to baseline values
-                    baseline = baseline_cpps[cpp_name]
-                    variation = np.random.normal(0, noise_scale)
-                    past_cpps_unscaled[i, j] = baseline * (1 + variation)
+        # Check if we have sufficient real data in buffer
+        if self.history_buffer.is_ready(lookback):
+            # Use real historical data
+            past_cmas_unscaled, past_cpps_unscaled = self.history_buffer.get_model_inputs(lookback)
+            
+            if self.config.get('verbose', False) and not self._initialization_complete:
+                print("Switched to real history data for MPC predictions")
+                self._initialization_complete = True
+                
+        else:
+            # Use startup generator during initial operation
+            available_samples = len(self.history_buffer)
+            
+            if available_samples > 0:
+                # Partial real data available - combine with startup generation
+                real_cmas, real_cpps = self.history_buffer.get_model_inputs(available_samples)
+                
+                # Initialize startup generator if needed
+                if self.startup_generator is None:
+                    latest_cma, latest_cpp, _ = self.history_buffer.get_latest()
+                    if latest_cma is not None and latest_cpp is not None:
+                        self.startup_generator = StartupHistoryGenerator(
+                            cma_features=len(self.config['cma_names']),
+                            cpp_features=len(self.config['cpp_names']),
+                            initial_cma_state=latest_cma,
+                            initial_cpp_state=latest_cpp
+                        )
+                
+                # Generate startup history for missing samples
+                missing_samples = lookback - available_samples
+                startup_cmas, startup_cpps = self.startup_generator.generate_startup_history(missing_samples)
+                
+                # Combine startup and real data
+                past_cmas_unscaled = np.vstack([startup_cmas, real_cmas])
+                past_cpps_unscaled = np.vstack([startup_cpps, real_cpps])
+                
+            else:
+                # No real data yet - use pure startup generation
+                if self.startup_generator is None:
+                    # Create default startup generator with safe pharmaceutical baselines
+                    default_cma_state = np.array([450.0, 1.8])  # d50=450μm, LOD=1.8%
+                    default_cpp_state = np.array([130.0, 550.0, 30.0])  # Safe baselines
                     
-                    # Ensure values stay within reasonable process limits
-                    constraints = self.config.get('cpp_constraints', {})
-                    if cpp_name in constraints:
-                        min_val = constraints[cpp_name]['min_val']
-                        max_val = constraints[cpp_name]['max_val'] 
-                        past_cpps_unscaled[i, j] = np.clip(past_cpps_unscaled[i, j], min_val, max_val)
+                    # Trim to actual feature counts
+                    default_cma_state = default_cma_state[:len(self.config['cma_names'])]
+                    default_cpp_state = default_cpp_state[:len(self.config['cpp_names'])]
+                    
+                    self.startup_generator = StartupHistoryGenerator(
+                        cma_features=len(self.config['cma_names']),
+                        cpp_features=len(self.config['cpp_names']),
+                        initial_cma_state=default_cma_state,
+                        initial_cpp_state=default_cpp_state
+                    )
+                
+                past_cmas_unscaled, past_cpps_unscaled = self.startup_generator.generate_startup_history(lookback)
+                
+                if self.config.get('verbose', False):
+                    print(f"Using startup history generation (lookback={lookback})")
         
         # Scale both CMA and CPP historical data
         past_cmas_scaled = self._scale_cma_plan(past_cmas_unscaled)

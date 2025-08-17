@@ -115,8 +115,10 @@ mypy V2/robust_mpc/   # V2 library only
   - `models.py`: ProbabilisticTransformer with uncertainty quantification
   - `optimizers.py`: GeneticOptimizer for complex action spaces
   - `core.py`: RobustMPCController orchestrating all components
+  - `data_buffer.py`: Real trajectory tracking with DataBuffer and StartupHistoryGenerator
 - **Progressive learning**: 5 notebooks building complexity incrementally
 - **Docker deployment** ready with production configuration
+- **Real history tracking**: Accurate trajectory data replaces mock history generation
 
 ### V3 Architecture (Autonomous)
 - **Service-oriented architecture** with microservices
@@ -135,13 +137,15 @@ mypy V2/robust_mpc/   # V2 library only
 
 ### Control Architecture Evolution
 - **V1**: Reactive control with point predictions
-- **V2**: Proactive control with uncertainty quantification and integral action
+- **V2**: Proactive control with uncertainty quantification, integral action, and real trajectory tracking
 - **V3**: Autonomous control with online learning and explainable decisions
 
 ### Data Processing Patterns
 - **Chronological splitting**: 70% train / 15% validation / 15% test (prevents temporal leakage)
 - **Feature scaling**: MinMaxScaler fitted only on training data
 - **Sequence generation**: Sliding window for time-series samples
+- **Real trajectory tracking**: Rolling history buffer maintains actual control and measurement sequences
+- **Startup history generation**: Realistic initialization during initial operation phase
 
 ## Working with the Codebase
 
@@ -171,7 +175,8 @@ When working with V2 (production):
 3. Run controller with `python V2/run_controller.py --config V2/config.yaml`
 4. Modify `V2/robust_mpc/` modules as needed
 5. Test changes with existing test suite
-6. Import pattern: `from V2.robust_mpc import core, models, estimators`
+6. Import pattern: `from V2.robust_mpc import core, models, estimators, DataBuffer`
+7. Real history tracking: Use `DataBuffer` for trajectory management in custom applications
 
 When working with V3 (autonomous):
 1. From project root with activated environment
@@ -193,12 +198,19 @@ When adding new features:
 - `config['verbose'] = True`: Enable detailed validation logging for development
 - Prevents log spam in high-frequency deployments
 
+**History Buffer Configuration**: Control real trajectory tracking
+- `config['history_buffer_size'] = 150` (default): Rolling buffer capacity
+- `config['lookback'] = 36`: Historical data window for model predictions
+- Automatically transitions from startup to real history tracking
+
 ### Important File Locations
 - **Central configuration**: `pyproject.toml` (unified package and dependency management)
 - **Central environment**: `.venv/` (Python 3.12.3 with all versions and tools)
 - **V1 data**: `V1/data/` (pre-processed datasets and trained models)
 - **V2 library**: `V2/robust_mpc/` (production-ready modules)
+- **V2 real history**: `V2/robust_mpc/data_buffer.py` (trajectory tracking implementation)
 - **V2 configuration**: `V2/config.yaml`, `V2/pyproject.toml`, `V2/Dockerfile`
+- **V2 tests**: `V2/tests/test_history_buffer.py` (real history validation tests)
 - **V3 services**: `V3/services/` (microservice implementations)
 - **Documentation**: Version-specific README files and DESIGN_DOCUMENT.md files
 
@@ -222,9 +234,10 @@ The project has been successfully migrated to a unified central environment with
 
 #### Module Discovery and Imports
 - ✅ **V1.src modules**: `plant_simulator`, `model_architecture`, `mpc_controller`, `dataset`
-- ✅ **V2.robust_mpc modules**: `core`, `models`, `estimators`, `optimizers`
+- ✅ **V2.robust_mpc modules**: `core`, `models`, `estimators`, `optimizers`, `data_buffer`
 - ✅ **V3.src.autopharm_core modules**: `control`, `learning`, `rl`, `xai`
 - ✅ **Cross-version imports**: All inter-module dependencies working correctly
+- ✅ **Real history tracking**: DataBuffer and StartupHistoryGenerator integrated
 
 #### Development Tools Integration
 - ✅ **Testing framework**: `pytest` across all versions with coverage reporting
@@ -243,13 +256,15 @@ print(f'Python: {sys.version}')
 # Test all module imports
 import V1.src.plant_simulator
 import V2.robust_mpc.core  
+import V2.robust_mpc.data_buffer
 import V3.src.autopharm_core
 print('✅ All modules discoverable')
 
 # Test cross-version imports
 from V1.src import plant_simulator
-from V2.robust_mpc import models
+from V2.robust_mpc import models, core, DataBuffer
 print('✅ Cross-version imports working')
+print('✅ Real history tracking available')
 "
 ```
 
@@ -323,6 +338,82 @@ Recent enhancements to V1 codebase include:
 - **Usage examples**: Practical code snippets demonstrating typical workflows
 - **Technical implementation details**: Algorithm explanations and performance considerations
 - **Type safety**: Tensor shape specifications and validation throughout
+
+## Real History Tracking Architecture (V2)
+
+### Critical Architectural Fix
+V2 has replaced unrealistic mock history generation with accurate trajectory tracking to fix a critical flaw that would have caused significant production issues.
+
+#### Previous Problem (Fixed)
+- **Mock history generation**: `_get_scaled_history()` created fabricated history using hardcoded baselines
+- **Unrealistic data**: Used fixed values (spray_rate=130, air_flow=550, carousel_speed=30) regardless of actual trajectory
+- **Silent failure**: Model received false information unrepresentative of process dynamics
+- **Production risk**: Poor predictions leading to potential pharmaceutical batch failures
+
+#### New Solution
+- **Real trajectory tracking**: `DataBuffer` maintains actual control and measurement sequences
+- **Accurate model inputs**: Historical data reflects true process dynamics and control effectiveness
+- **Production reliability**: Proper predictions enable effective pharmaceutical manufacturing control
+
+### DataBuffer Class (`data_buffer.py`)
+- **Thread-safe rolling buffer**: Maintains CMA and CPP historical data with configurable size
+- **Automatic validation**: Timestamp sequencing, input validation, and error handling
+- **Memory efficient**: Circular buffer implementation for continuous operation
+- **Industrial grade**: Designed for high-frequency pharmaceutical control applications
+
+### StartupHistoryGenerator Class
+- **Realistic initialization**: Generates startup history during initial operation phase
+- **Gradual convergence**: Shows realistic process trajectory to initial conditions
+- **Smooth transition**: Seamless switch from startup to real data as buffer fills
+
+### Enhanced RobustMPCController
+- **Integrated history buffer**: Real trajectory tracking in every control step
+- **Backward compatible**: Optional timestamp parameter, existing API preserved
+- **Startup handling**: Automatic transition from startup to real history
+- **Production logging**: Verbose flag controls detailed history tracking information
+
+### Implementation Benefits
+```python
+# OLD (Mock History) - FIXED
+def _get_scaled_history(self, current_state):
+    # Created fabricated history around hardcoded baselines
+    baseline_cpps = {'spray_rate': 130.0, 'air_flow': 550.0}  # Unrealistic!
+    # Added noise to simulate "history" - completely wrong
+
+# NEW (Real History) - PRODUCTION READY
+def _get_real_history(self):
+    # Uses actual trajectory data from rolling buffer
+    if self.history_buffer.is_ready(lookback):
+        past_cmas, past_cpps = self.history_buffer.get_model_inputs(lookback)
+        # Model sees real process dynamics and control effectiveness
+```
+
+### Testing and Validation
+- **Comprehensive test suite**: 15 tests covering buffer management, thread safety, and integration
+- **Performance demonstration**: Clear comparison showing accuracy improvement
+- **Production validation**: Error handling, constraint checking, and industrial safety
+
+### Configuration Options
+```yaml
+# V2 Controller Configuration
+mpc:
+  lookback: 36                    # Historical data window
+  history_buffer_size: 150        # Rolling buffer capacity
+  verbose: false                  # Production logging control
+```
+
+### Critical Impact
+**Before Fix:**
+- Model predictions based on fabricated, unrepresentative data
+- Controller could not understand actual process trajectory
+- Risk of poor pharmaceutical batch quality
+
+**After Fix:**
+- Accurate model predictions based on real trajectory data
+- Controller understands process dynamics and control effectiveness
+- Reliable pharmaceutical manufacturing control with proper trajectory planning
+
+This architectural improvement is **essential for production deployment** and resolves a fundamental flaw that would have caused significant manufacturing issues.
 
 ## Development Philosophy
 

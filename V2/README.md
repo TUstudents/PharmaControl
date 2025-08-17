@@ -25,6 +25,7 @@ V2 represents a complete architectural transformation from research prototype to
 - **🔍 Noise Filtering**: Kalman filtering for sensor noise rejection
 - **🧬 Intelligent Search**: Genetic algorithms for complex optimization
 - **⚖️ Offset-Free Control**: Integral action eliminates steady-state errors
+- **📈 Real Trajectory Tracking**: Accurate history replaces mock data generation
 - **🛡️ Industrial Safety**: Formal constraints and safety guarantees
 - **🧪 Comprehensive Testing**: Full test suite with production validation
 
@@ -36,7 +37,8 @@ from V2.robust_mpc import (
     KalmanStateEstimator,      # Sensor noise filtering
     ProbabilisticTransformer,  # Uncertainty-aware prediction
     GeneticOptimizer,          # Intelligent optimization
-    RobustMPCController        # Integrated control system
+    RobustMPCController,       # Integrated control system
+    DataBuffer                 # Real trajectory tracking
 )
 
 # Composable, production-ready components
@@ -61,6 +63,7 @@ V2/
 │   ├── estimators.py                   # KalmanStateEstimator
 │   ├── models.py                       # ProbabilisticTransformer
 │   ├── optimizers.py                   # GeneticOptimizer
+│   ├── data_buffer.py                  # Real trajectory tracking
 │   └── core.py                         # RobustMPCController
 ├── 📓 notebooks/                       # Progressive learning series
 │   ├── V2-1_State_Estimation_for_Stable_Control.ipynb
@@ -235,6 +238,50 @@ actions = controller.compute_control(
 - Risk-adjusted optimization with confidence bounds
 - Constraint satisfaction and safety guarantees
 - Production-validated performance
+
+### **📈 5. Real Trajectory Tracking**
+Critical architectural improvement for production reliability:
+
+```python
+from V2.robust_mpc import DataBuffer, RobustMPCController
+
+# Thread-safe rolling buffer for real history
+buffer = DataBuffer(
+    cma_features=2,        # d50, LOD
+    cpp_features=3,        # spray_rate, air_flow, carousel_speed
+    buffer_size=150,       # Rolling history capacity
+    validate_sequence=True # Industrial safety
+)
+
+# Automatic integration in RobustMPCController
+controller = RobustMPCController(
+    model=probabilistic_model,
+    estimator=kalman_estimator,
+    optimizer_class=GeneticOptimizer,
+    config=mpc_config,
+    scalers=data_scalers
+)
+
+# Real trajectory tracking in every control step
+action = controller.suggest_action(
+    noisy_measurement=measurement,
+    control_input=current_control,
+    setpoint=target
+)
+```
+
+**Key Benefits:**
+- **Accurate model predictions** based on real process dynamics
+- **Eliminates fabricated history** that misled previous implementations
+- **Production reliability** for pharmaceutical manufacturing
+- **Thread-safe operation** for high-frequency control
+
+**Critical Fix:**
+- **Before**: Mock history with hardcoded baselines (spray_rate=130, air_flow=550)
+- **After**: Real trajectory tracking showing actual control effectiveness
+- **Impact**: Proper pharmaceutical batch quality through accurate predictions
+
+📋 **See [REAL_HISTORY_TRACKING.md](REAL_HISTORY_TRACKING.md) for detailed documentation**
 
 ## 📖 Learning Path (5 Notebooks)
 
