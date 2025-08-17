@@ -23,6 +23,7 @@ class RobustMPCController:
         - Uncertainty-aware control decisions based on prediction confidence
         - Robust optimization using genetic algorithms for global optima
         - Multi-objective optimization balancing tracking performance and risk
+        - Industrial-grade error handling with safe fallback strategies
     
     CRITICAL IMPLEMENTATION DETAIL - Data Scaling:
         This controller implements TWO DISTINCT scaling methods for different data types:
@@ -116,6 +117,9 @@ class RobustMPCController:
 
         # Initialize the disturbance estimate for Integral Action
         self.disturbance_estimate = np.zeros(len(config['cma_names']))
+        
+        # Initialize fallback control action (safe defaults)
+        self._last_successful_action = None
 
     def _update_disturbance_estimate(self, smooth_state, setpoint):
         """Updates the integral error term for offset-free control."""
@@ -181,13 +185,30 @@ class RobustMPCController:
         target_plan = np.tile(setpoint, (self.config['horizon'], 1))
         fitness_func = self._get_fitness_function(past_cmas_scaled, past_cpps_scaled, target_plan)
 
-        # 4. Instantiate and run the optimizer
+        # 4. Instantiate and run the optimizer with error handling
         param_bounds = self._get_param_bounds()
-        optimizer = self.optimizer_class(fitness_func, param_bounds, self.config['ga_config'])
-        best_plan = optimizer.optimize()
-
-        # 5. Return the first step of the optimal plan
-        return best_plan[0]
+        
+        try:
+            optimizer = self.optimizer_class(fitness_func, param_bounds, self.config['ga_config'])
+            best_plan = optimizer.optimize()
+            
+            # Validate optimization result
+            if best_plan is None or best_plan.size == 0:
+                raise ValueError("Optimizer returned invalid result")
+                
+            # Store successful action for fallback
+            self._last_successful_action = best_plan[0].copy()
+            
+            # 5. Return the first step of the optimal plan
+            return best_plan[0]
+            
+        except Exception as e:
+            if self.config.get('verbose', False):
+                print(f"Optimizer failed: {e}")
+                print("Using fallback control strategy")
+            
+            # Fallback strategy: return safe control action
+            return self._get_fallback_action(control_input)
 
     # --- Helper methods for scaling and data management ---
     def _get_scaled_history(self, current_smooth_state):
@@ -428,6 +449,74 @@ class RobustMPCController:
             for name in self.config['cpp_names']:
                 param_bounds.append((cpp_config[name]['min_val'], cpp_config[name]['max_val']))
         return param_bounds
+    
+    def _get_fallback_action(self, current_control_input):
+        """Get safe fallback control action when optimizer fails.
+        
+        Implements multiple fallback strategies in order of preference:
+        1. Last successful optimization result
+        2. Hold current control input (if valid)
+        3. Safe default control values
+        
+        Args:
+            current_control_input: Current control input values
+            
+        Returns:
+            np.ndarray: Safe control action
+        """
+        # Strategy 1: Use last successful optimization result
+        if self._last_successful_action is not None:
+            if self._validate_control_action(self._last_successful_action):
+                return self._last_successful_action.copy()
+        
+        # Strategy 2: Hold current control input (if valid)
+        if current_control_input is not None:
+            if self._validate_control_action(current_control_input):
+                return current_control_input.copy()
+        
+        # Strategy 3: Use safe default control values (midpoint of constraints)
+        safe_action = np.zeros(len(self.config['cpp_names']))
+        cpp_config = self.config['cpp_constraints']
+        
+        for i, name in enumerate(self.config['cpp_names']):
+            if name in cpp_config:
+                min_val = cpp_config[name]['min_val']
+                max_val = cpp_config[name]['max_val']
+                safe_action[i] = (min_val + max_val) / 2.0
+            else:
+                # If no constraints, use a conservative default
+                safe_action[i] = 0.0
+                
+        return safe_action
+    
+    def _validate_control_action(self, action):
+        """Validate that control action satisfies constraints.
+        
+        Args:
+            action: Control action to validate
+            
+        Returns:
+            bool: True if action is valid and safe
+        """
+        if action is None or not isinstance(action, np.ndarray):
+            return False
+            
+        if action.size != len(self.config['cpp_names']):
+            return False
+            
+        if not np.all(np.isfinite(action)):
+            return False
+            
+        # Check constraint bounds
+        cpp_config = self.config['cpp_constraints']
+        for i, name in enumerate(self.config['cpp_names']):
+            if name in cpp_config:
+                min_val = cpp_config[name]['min_val']
+                max_val = cpp_config[name]['max_val']
+                if not (min_val <= action[i] <= max_val):
+                    return False
+                    
+        return True
 
     def _validate_initialization(self):
         """Validate controller configuration and scalers during initialization."""
