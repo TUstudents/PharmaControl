@@ -51,17 +51,20 @@ class KalmanStateEstimator:
 
 class BiasAugmentedKalmanStateEstimator:
     """
-    Enhanced Kalman Filter with bias state augmentation to handle model steady-state offsets.
+    Enhanced Kalman Filter with bias state augmentation for PROCESS BIAS correction.
     
-    Mathematical Model:
+    This models systematic errors in the process dynamics themselves, such as missing 
+    intercept terms and unmodeled nonlinearities in pharmaceutical granulation processes.
+    
+    Mathematical Model (PROCESS BIAS):
     - Augmented State: [x_physical, x_bias]
-    - State Evolution: x_physical[k+1] = A*x_physical[k] + B*u[k] + x_bias[k] + w1[k]
+    - State Evolution: x_physical[k+1] = A*x_physical[k] + B*u[k] + x_bias[k] + w1[k]  (bias affects dynamics)
     - Bias Evolution:  x_bias[k+1] = x_bias[k] + w2[k]  (random walk)
-    - Observation:     y[k] = x_physical[k] + v[k]  (bias is in model, not measurement)
+    - Observation:     y[k] = x_physical[k] + v[k]  (sensors are unbiased, observe physical state only)
     
-    The bias states evolve as random walks and are added to the physical state predictions,
-    allowing the filter to automatically compensate for systematic model prediction errors.
-    This corrects steady-state offsets that arise from linear model approximation of nonlinear dynamics.
+    Key Insight: The bias represents systematic model errors (e.g., missing sklearn intercept), 
+    NOT sensor calibration errors. This distinguishes it from measurement bias models where
+    bias appears in the observation equation instead of state evolution.
     """
     def __init__(self, transition_matrix, control_matrix, initial_state_mean, 
                  process_noise_std=0.5, measurement_noise_std=10.0, bias_process_noise_std=0.1):
@@ -84,7 +87,7 @@ class BiasAugmentedKalmanStateEstimator:
         self.original_A = transition_matrix
         self.original_B = control_matrix
         
-        # Build augmented state-space model
+        # Build augmented state-space model for PROCESS BIAS
         # Augmented state: [x_physical, x_bias]
         # Model: [x_physical[k+1]] = [[A, I]] * [x_physical[k]] + [B] * u[k] + w[k]
         #        [x_bias[k+1]   ]   [[0, I]]   [x_bias[k]   ]   [0]
@@ -93,7 +96,7 @@ class BiasAugmentedKalmanStateEstimator:
         # Augmented transition matrix A_aug
         A_aug = np.zeros((self.n_augmented_states, self.n_augmented_states))
         A_aug[:self.n_physical_states, :self.n_physical_states] = transition_matrix  # A for physical states
-        A_aug[:self.n_physical_states, self.n_physical_states:] = np.eye(self.n_physical_states)  # Bias affects physical states
+        A_aug[:self.n_physical_states, self.n_physical_states:] = np.eye(self.n_physical_states)  # Bias affects physical state evolution
         A_aug[self.n_physical_states:, self.n_physical_states:] = np.eye(self.n_physical_states)  # Bias evolves as random walk
         
         # Augmented control matrix B_aug
@@ -102,10 +105,10 @@ class BiasAugmentedKalmanStateEstimator:
         # Bias states are not directly affected by controls
         
         # Augmented observation matrix C_aug
-        # We observe only the physical states (bias is in the model, not measurement)
+        # CORRECTED FOR PROCESS BIAS: We observe only the physical state (bias affects dynamics, not sensors)
         C_aug = np.zeros((self.n_physical_states, self.n_augmented_states))
-        C_aug[:, :self.n_physical_states] = np.eye(self.n_physical_states)  # Observe physical states only
-        # Bias states are not directly observed
+        C_aug[:, :self.n_physical_states] = np.eye(self.n_physical_states)   # Observe physical state only
+        # C_aug[:, self.n_physical_states:] = 0  (bias states not directly observed)
         
         # Augmented process noise covariance Q_aug
         Q_aug = np.zeros((self.n_augmented_states, self.n_augmented_states))
@@ -196,3 +199,205 @@ class BiasAugmentedKalmanStateEstimator:
             np.array: Current bias estimates for each physical state
         """
         return self.filtered_state_mean[self.n_physical_states:]
+
+
+class ProcessBiasKalmanEstimator:
+    """
+    Standard Kalman Filter with a fixed intercept term for PROCESS BIAS correction.
+    
+    Assumes the system DYNAMICS are biased (e.g., missing intercept from regression).
+    Model: x[k+1] = A*x[k] + B*u[k] + intercept + w[k]
+           y[k] = C*x[k] + v[k]  (sensors are perfect/unbiased)
+    
+    This models systematic errors in the process model itself, such as missing 
+    intercept terms and unmodeled nonlinearities in pharmaceutical granulation.
+    
+    Advantages:
+    - Simple implementation (no state augmentation)
+    - Immediate bias correction if intercept is known accurately
+    - Lower computational cost
+    - Mathematically consistent with adaptive approach
+    
+    Disadvantages:
+    - No adaptation to changing conditions
+    - Performance depends critically on intercept accuracy
+    - Cannot handle time-varying process bias
+    """
+    def __init__(self, transition_matrix, control_matrix, initial_state_mean, intercept_term,
+                 process_noise_std=0.5, measurement_noise_std=10.0):
+        """
+        Initialize intercept-based Kalman filter.
+        
+        Args:
+            transition_matrix: A matrix (n_states x n_states)
+            control_matrix: B matrix (n_states x n_controls)
+            initial_state_mean: Initial TRUE state estimate (class handles bias correction)
+            intercept_term: Fixed intercept from regression (steady-state bias)
+            process_noise_std: Process noise for physical states
+            measurement_noise_std: Sensor measurement noise
+        """
+        self.n_states = len(initial_state_mean)
+        self.n_controls = control_matrix.shape[1]
+        self.intercept = intercept_term
+        
+        # Store matrices
+        self.transition_matrix = transition_matrix
+        self.control_matrix = control_matrix
+        
+        # Initialize filter with the true initial state
+        # The class handles bias correction internally through the estimate method
+        
+        # Create standard Kalman filter (no augmentation)
+        self.kf = KalmanFilter(
+            n_dim_state=self.n_states,
+            n_dim_obs=self.n_states,
+            transition_matrices=transition_matrix,
+            transition_covariance=np.eye(self.n_states) * process_noise_std**2,
+            observation_matrices=np.eye(self.n_states),
+            observation_covariance=np.eye(self.n_states) * measurement_noise_std**2,
+            initial_state_mean=initial_state_mean,  # Use true initial state directly
+            initial_state_covariance=np.eye(self.n_states)
+        )
+        
+        # Initialize filtered state and covariance
+        self.filtered_state_mean = self.kf.initial_state_mean
+        self.filtered_state_covariance = self.kf.initial_state_covariance
+        
+    def estimate(self, measurement, control_input):
+        """
+        Performs one step of the intercept-based Kalman Filter.
+        
+        CORRECTED IMPLEMENTATION per user feedback: The intercept goes into the transition model.
+        Model: x[k+1] = A*x[k] + B*u[k] + intercept + w[k]
+        
+        This correctly models processes with systematic drift or bias in the dynamics.
+        
+        Args:
+            measurement (np.array): Noisy measurement of physical states  
+            control_input (np.array): Control action applied at this step
+            
+        Returns:
+            np.array: Filtered state estimate with intercept correction
+        """
+        # Calculate control offset
+        control_offset = np.dot(self.control_matrix, control_input)
+        
+        # USER'S CORRECT FIX: Add intercept to transition offset
+        # This models: x[k+1] = A*x[k] + B*u[k] + intercept
+        transition_offset = control_offset + self.intercept
+        
+        # Update filter with original measurement and corrected dynamics
+        self.filtered_state_mean, self.filtered_state_covariance = self.kf.filter_update(
+            filtered_state_mean=self.filtered_state_mean,
+            filtered_state_covariance=self.filtered_state_covariance,
+            observation=measurement,  # Use original measurement
+            transition_offset=transition_offset  # Include intercept in dynamics
+        )
+        
+        # Return filtered state directly (no additional bias correction needed)
+        return self.filtered_state_mean
+    
+    def get_intercept_value(self):
+        """
+        Get the fixed intercept value being applied.
+        
+        Returns:
+            np.array: Fixed intercept term
+        """
+        return self.intercept
+
+
+class MeasurementBiasKalmanEstimator:
+    """
+    Standard Kalman Filter with a fixed intercept for MEASUREMENT BIAS correction.
+    
+    Assumes the SENSORS are biased (e.g., calibration offset) but system dynamics are correct.
+    Model: x[k+1] = A*x[k] + B*u[k] + w[k]              (unbiased dynamics)
+           y[k] = C*x[k] + intercept + v[k]             (biased measurements)
+    
+    This corrects for systematic sensor offsets, calibration errors, or measurement drift.
+    The filter operates on bias-corrected measurements and estimates the true state.
+    
+    Advantages:
+    - Simple implementation (no state augmentation)
+    - Immediate bias correction if measurement offset is known
+    - Lower computational cost
+    - Stable for measurement bias scenarios
+    
+    Disadvantages:
+    - No adaptation to changing measurement bias
+    - Performance depends critically on bias knowledge accuracy
+    - Cannot handle time-varying sensor drift
+    """
+    def __init__(self, transition_matrix, control_matrix, initial_state_mean, intercept_term,
+                 process_noise_std=0.5, measurement_noise_std=10.0):
+        """
+        Initialize measurement-bias-corrected Kalman filter.
+        
+        Args:
+            transition_matrix: A matrix (n_states x n_states)
+            control_matrix: B matrix (n_states x n_controls)
+            initial_state_mean: Initial TRUE state estimate (before bias)
+            intercept_term: Fixed measurement bias/offset
+            process_noise_std: Process noise for physical states
+            measurement_noise_std: Sensor measurement noise (after bias correction)
+        """
+        self.n_states = len(initial_state_mean)
+        self.control_matrix = control_matrix
+        self.intercept = intercept_term  # This is the measurement bias
+        
+        # Create standard Kalman filter for unbiased dynamics
+        self.kf = KalmanFilter(
+            n_dim_state=self.n_states,
+            n_dim_obs=self.n_states,
+            transition_matrices=transition_matrix,
+            transition_covariance=np.eye(self.n_states) * process_noise_std**2,
+            observation_matrices=np.eye(self.n_states),
+            observation_covariance=np.eye(self.n_states) * measurement_noise_std**2,
+            initial_state_mean=initial_state_mean,
+            initial_state_covariance=np.eye(self.n_states)
+        )
+        
+        # Initialize filtered state and covariance
+        self.filtered_state_mean = self.kf.initial_state_mean
+        self.filtered_state_covariance = self.kf.initial_state_covariance
+        
+    def estimate(self, measurement, control_input):
+        """
+        Performs one step of the measurement-bias-corrected Kalman Filter.
+        
+        THE FIX: Correct the measurement BEFORE the update step by removing known bias.
+        The filter then operates on unbiased measurements and unbiased dynamics.
+        
+        Args:
+            measurement (np.array): Biased measurement from sensors
+            control_input (np.array): Control action applied at this step
+            
+        Returns:
+            np.array: Filtered true state estimate (bias-corrected)
+        """
+        # THE CRITICAL FIX: Correct the measurement before processing
+        unbiased_measurement = measurement - self.intercept
+        
+        # Standard control offset (no bias in dynamics)
+        transition_offset = np.dot(self.control_matrix, control_input)
+        
+        # Update filter with corrected measurement and unbiased dynamics
+        self.filtered_state_mean, self.filtered_state_covariance = self.kf.filter_update(
+            filtered_state_mean=self.filtered_state_mean,
+            filtered_state_covariance=self.filtered_state_covariance,
+            observation=unbiased_measurement,  # Use corrected measurement
+            transition_offset=transition_offset
+        )
+        
+        # Return the true state estimate (already bias-corrected)
+        return self.filtered_state_mean
+    
+    def get_intercept_value(self):
+        """
+        Get the fixed measurement bias value being corrected.
+        
+        Returns:
+            np.array: Fixed measurement bias term
+        """
+        return self.intercept
