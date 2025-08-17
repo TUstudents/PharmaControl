@@ -139,7 +139,7 @@ def test_optimizers_module():
         assert result.shape == (3, 2)
         assert isinstance(result, np.ndarray)
         
-        print("✅ GeneticOptimizer basic functionality test passed")
+        print("GeneticOptimizer basic functionality test passed")
         
     except ImportError as e:
         pytest.fail(f"Could not import optimizers module: {e}")

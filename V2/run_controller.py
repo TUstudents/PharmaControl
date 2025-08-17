@@ -36,19 +36,19 @@ try:
     from models import ProbabilisticTransformer
     from optimizers import GeneticOptimizer
     from core import RobustMPCController
-    print("✅ V2 RobustMPC components loaded successfully")
+    print("V2 RobustMPC components loaded successfully")
 except ImportError as e:
-    print(f"❌ Failed to import V2 components: {e}")
-    print("📋 Note: Full deployment requires trained models and all dependencies")
+    print(f"Failed to import V2 components: {e}")
+    print("Note: Full deployment requires trained models and all dependencies")
     sys.exit(1)
 
 # --- V1 Imports (for the simulator) ---
 try:
     from plant_simulator import AdvancedPlantSimulator
-    print("✅ V1 Plant simulator loaded successfully")
+    print("V1 Plant simulator loaded successfully")
 except ImportError as e:
-    print(f"⚠️  V1 simulator not available: {e}")
-    print("📋 Using mock simulator for demonstration")
+    print(f"V1 simulator not available: {e}")
+    print("Using mock simulator for demonstration")
     AdvancedPlantSimulator = None
 
 def load_config(config_path: str = 'config.yaml') -> Dict[str, Any]:
@@ -64,14 +64,14 @@ def load_config(config_path: str = 'config.yaml') -> Dict[str, Any]:
     try:
         with open(config_path, 'r') as f:
             config = yaml.safe_load(f)
-        print(f"✅ Configuration loaded from {config_path}")
+        print(f"Configuration loaded from {config_path}")
         return config
     except FileNotFoundError:
-        print(f"❌ Configuration file not found: {config_path}")
-        print("📋 Using default configuration")
+        print(f"Configuration file not found: {config_path}")
+        print("Using default configuration")
         return get_default_config()
     except yaml.YAMLError as e:
-        print(f"❌ Error parsing YAML configuration: {e}")
+        print(f"Error parsing YAML configuration: {e}")
         sys.exit(1)
 
 def get_default_config() -> Dict[str, Any]:
@@ -160,11 +160,11 @@ def load_components(config: Dict[str, Any]):
     Returns:
         Initialized RobustMPCController instance
     """
-    print("🔧 Loading V2 RobustMPC Components...")
+    print("Loading V2 RobustMPC Components...")
     
     # Device detection
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    print(f"🖥️  Using device: {device}")
+    print(f"Using device: {device}")
 
     # Load scalers (if available)
     scalers = None
@@ -172,11 +172,11 @@ def load_components(config: Dict[str, Any]):
     if os.path.exists(scalers_path):
         try:
             scalers = joblib.load(scalers_path)
-            print("✅ Loaded data scalers")
+            print("Loaded data scalers")
         except Exception as e:
-            print(f"⚠️  Could not load scalers: {e}")
+            print(f"Warning: Could not load scalers: {e}")
     else:
-        print("📋 Scalers file not found, using default preprocessing")
+        print("Scalers file not found, using default preprocessing")
 
     # Initialize Predictive Model
     model_config = config['model']
@@ -253,12 +253,9 @@ def run_control_loop(controller, config: Dict[str, Any], args):
     current_cpps = config['simulation']['initial_cpps'].copy()
     setpoint = np.array(list(config['simulation']['target_setpoint'].values()))
     
-    print(f"\n🎯 Target Setpoint: d50={setpoint[0]:.1f}μm, LOD={setpoint[1]:.2f}%")
-    print(f"⏱️  Running for {args.steps} steps")
-    print(f"🔄 Step interval: {config['simulation']['step_interval_seconds']}s")
-    print("\n" + "="*80)
-    print("🚀 STARTING REAL-TIME CONTROL LOOP")
-    print("="*80)
+    print(f"Target Setpoint: d50={setpoint[0]:.1f}μm, LOD={setpoint[1]:.2f}%")
+    print(f"Running for {args.steps} steps")
+    print("STARTING REAL-TIME CONTROL LOOP")
     
     try:
         performance_log = []
@@ -323,18 +320,16 @@ def run_control_loop(controller, config: Dict[str, Any], args):
     if performance_log:
         final_errors = [entry['total_error'] for entry in performance_log[-50:]]
         avg_final_error = np.mean(final_errors)
-        print("="*80)
-        print("📊 PERFORMANCE SUMMARY")
-        print("="*80)
-        print(f"🎯 Final Average Error (last 50 steps): {avg_final_error:.3f}")
-        print(f"📈 Total Steps Completed: {len(performance_log)}")
+        print("PERFORMANCE SUMMARY")
+        print(f"Final Average Error (last 50 steps): {avg_final_error:.3f}")
+        print(f"Total Steps Completed: {len(performance_log)}")
         
         if hasattr(controller, 'get_performance_metrics'):
             metrics = controller.get_performance_metrics()
-            print(f"🔧 Total Control Actions: {metrics.get('total_control_actions', 'N/A')}")
-            print(f"📊 Average Optimization Time: {metrics.get('mean_optimization_time', 'N/A')}")
+            print(f"Total Control Actions: {metrics.get('total_control_actions', 'N/A')}")
+            print(f"Average Optimization Time: {metrics.get('mean_optimization_time', 'N/A')}")
         
-        print("✅ V2 RobustMPC demonstration completed successfully!")
+        print("V2 RobustMPC demonstration completed successfully")
 
 def parse_arguments():
     """Parse command line arguments."""
@@ -349,10 +344,7 @@ def parse_arguments():
 
 def main():
     """Main application entry point."""
-    print("🎛️  RobustMPC-Pharma V2 - Industrial Control System")
-    print("=" * 60)
-    print("🏭 Uncertainty-Aware | Adaptive | Production-Ready")
-    print("=" * 60)
+    print("RobustMPC-Pharma V2 - Industrial Control System")
     
     # Parse command line arguments
     args = parse_arguments()

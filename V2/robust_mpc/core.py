@@ -480,7 +480,7 @@ class RobustMPCController:
                 raise ValueError(f"Scaler for '{scaler_name}' missing 'transform' method")
                 
         if self.config.get('verbose', False):
-            print(f"✓ RobustMPCController validation passed")
+            print("RobustMPCController validation passed")
             print(f"  - CMAs: {self.config['cma_names']}")
             print(f"  - CPPs: {self.config['cpp_names']}")  
             print(f"  - Full CPPs: {self.config['cpp_full_names']}")
@@ -499,4 +499,4 @@ class RobustMPCController:
             raise ValueError(f"{method_name}: Input contains non-finite values (NaN/inf)")
             
         if self.config.get('verbose', False):
-            print(f"✓ {method_name} input validation passed: shape {data.shape} ({expected_shape_desc})")
+            print(f"{method_name} input validation passed: shape {data.shape} ({expected_shape_desc})")

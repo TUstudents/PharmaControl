@@ -181,7 +181,7 @@ def test_offset_free_performance_comparison():
     # 1. Zero offset should remain zero
     zero_scaled = controller._scale_cma_offset(np.array([0.0, 0.0]))
     assert np.allclose(zero_scaled, [0.0, 0.0]), "Zero offset not preserved"
-    print("✓ Zero offset preservation: PASSED")
+    print("Zero offset preservation: PASSED")
     
     # 2. Sign preservation
     positive_offset = np.array([20.0, 0.1])
@@ -192,7 +192,7 @@ def test_offset_free_performance_comparison():
     
     assert np.all(positive_scaled > 0), "Positive offset signs not preserved"
     assert np.all(negative_scaled < 0), "Negative offset signs not preserved"
-    print("✓ Sign preservation: PASSED")
+    print("Sign preservation: PASSED")
     
     # 3. Proportionality
     offset_1x = np.array([10.0, 0.05])
@@ -202,11 +202,11 @@ def test_offset_free_performance_comparison():
     scaled_2x = controller._scale_cma_offset(offset_2x)
     
     assert np.allclose(scaled_2x, 2.0 * scaled_1x, rtol=1e-6), "Proportionality not preserved"
-    print("✓ Proportionality preservation: PASSED")
+    print("Proportionality preservation: PASSED")
     
-    print(f"\n✅ Offset-Free MPC Performance Test: PASSED")
-    print("✅ Critical offset scaling bug has been successfully fixed!")
-    print("✅ Integral action now works correctly for pharmaceutical process control")
+    print("Offset-Free MPC Performance Test: PASSED")
+    print("Critical offset scaling bug has been successfully fixed")
+    print("Integral action now works correctly for pharmaceutical process control")
     
     return {
         'measurements': measurements,
@@ -280,11 +280,11 @@ def test_offset_scaling_mathematical_verification():
         # Verify mathematical correctness
         assert np.allclose(scaled, expected, rtol=1e-10), f"Mathematical error for offset {offset}"
         
-        print(f"Test {i+1}: [{offset[0]:6.1f}, {offset[1]:5.2f}] → [{scaled[0]:8.6f}, {scaled[1]:8.6f}] ✓")
+        print(f"Test {i+1}: [{offset[0]:6.1f}, {offset[1]:5.2f}] -> [{scaled[0]:8.6f}, {scaled[1]:8.6f}]")
     
-    print("\n✅ Mathematical verification: ALL TESTS PASSED")
-    print("✅ Offset scaling formula: scaled_offset = offset / (max - min)")
-    print("✅ No translation term applied (critical for integral action)")
+    print("Mathematical verification: ALL TESTS PASSED")
+    print("Offset scaling formula: scaled_offset = offset / (max - min)")
+    print("No translation term applied (critical for integral action)")
 
 
 if __name__ == "__main__":
@@ -294,5 +294,5 @@ if __name__ == "__main__":
     # Run the mathematical verification
     test_offset_scaling_mathematical_verification()
     
-    print(f"\n🎉 All offset-free MPC tests completed successfully!")
-    print(f"🎉 The critical offset scaling bug has been fixed!")
+    print("All offset-free MPC tests completed successfully")
+    print("The critical offset scaling bug has been fixed")
