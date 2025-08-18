@@ -56,6 +56,10 @@ mpc:
   # Uncertainty quantification
   mc_samples: 25             # Monte Carlo samples for uncertainty estimation
   
+  # Intelligent optimizer reset for setpoint changes
+  reset_optimizer_on_setpoint_change: true  # Enable fresh GA populations for large setpoint changes
+  setpoint_change_threshold: 0.05           # Relative change threshold (5%) to trigger optimizer reset
+  
   # Process variable references (must match process section)
   cma_names: ['d50', 'lod']
   cpp_names: ['spray_rate', 'air_flow', 'carousel_speed']

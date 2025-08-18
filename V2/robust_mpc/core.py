@@ -124,6 +124,9 @@ class RobustMPCController:
         # CRITICAL: Ensures safe fallback is available from very first control step
         self._last_successful_action = self._calculate_safe_default_action()
         
+        # Initialize setpoint tracking for intelligent optimizer reset
+        self._last_setpoint = None
+        
         # Initialize rolling history buffer for real trajectory tracking
         buffer_size = config.get('history_buffer_size', max(100, 3 * config['lookback']))
         self.history_buffer = DataBuffer(
@@ -226,14 +229,23 @@ class RobustMPCController:
         # 3. Update the integral error term
         self._update_disturbance_estimate(smooth_state, setpoint)
 
-        # 4. Get historical data for model prediction (real or startup)
+        # 4. Intelligent optimizer reset on significant setpoint changes
+        if self._should_reset_optimizer(setpoint):
+            if self.config.get('verbose', False):
+                print(f"Significant setpoint change detected, resetting optimizer for fresh exploration")
+            self._reset_optimizer()
+        
+        # Update setpoint tracking for next comparison
+        self._last_setpoint = setpoint.copy()
+
+        # 5. Get historical data for model prediction (real or startup)
         past_cmas_scaled, past_cpps_scaled = self._get_real_history()
 
-        # 5. Create the fitness function for this specific time step
+        # 6. Create the fitness function for this specific time step
         target_plan = np.tile(setpoint, (self.config['horizon'], 1))
         fitness_func = self._get_fitness_function(past_cmas_scaled, past_cpps_scaled, target_plan)
 
-        # 6. Use existing optimizer instance with current fitness function
+        # 7. Use existing optimizer instance with current fitness function
         if self.optimizer is None:
             if self.config.get('verbose', False):
                 print("No optimizer available, using fallback control strategy")
@@ -253,7 +265,7 @@ class RobustMPCController:
             # Store successful action for fallback (in physical units)
             self._last_successful_action = best_plan_unscaled[0].copy()
             
-            # 7. Return the first step of the optimal plan (in physical units)
+            # 8. Return the first step of the optimal plan (in physical units)
             return best_plan_unscaled[0]
             
         except Exception as e:
@@ -660,6 +672,62 @@ class RobustMPCController:
                 
         return safe_action
     
+    def _should_reset_optimizer(self, current_setpoint):
+        """Determine if optimizer should be reset due to significant setpoint change.
+        
+        Detects when setpoint changes are large enough to warrant fresh GA population
+        exploration rather than continuing with existing population bias.
+        
+        Args:
+            current_setpoint (np.ndarray): Current target setpoint values
+            
+        Returns:
+            bool: True if optimizer should be reset for fresh exploration
+            
+        Notes:
+            - Uses configurable threshold for change detection
+            - Supports both absolute and relative change metrics
+            - Essential for pharmaceutical grade transitions
+        """
+        # Skip reset if feature disabled
+        if not self.config.get('reset_optimizer_on_setpoint_change', True):
+            return False
+            
+        # Always reset on first setpoint (no previous reference)
+        if self._last_setpoint is None:
+            return False  # Don't reset on very first call
+            
+        # Calculate setpoint change magnitude
+        setpoint_change = np.abs(current_setpoint - self._last_setpoint)
+        
+        # Get configured threshold (default: 5% relative change)
+        threshold = self.config.get('setpoint_change_threshold', 0.05)
+        
+        # Use relative change detection for pharmaceutical applications
+        if np.any(setpoint_change / (np.abs(self._last_setpoint) + 1e-6) > threshold):
+            return True
+            
+        return False
+    
+    def _reset_optimizer(self):
+        """Reset optimizer to fresh state for new exploration.
+        
+        Reinitializes the genetic algorithm optimizer with fresh random population
+        to avoid population bias when setpoints change significantly.
+        
+        Notes:
+            - Called automatically on significant setpoint changes
+            - Maintains same parameter bounds and GA configuration
+            - Essential for pharmaceutical grade transition control
+        """
+        if self.optimizer is not None and self.optimizer_class is not None:
+            # Reinitialize with same bounds and configuration
+            param_bounds = self._get_param_bounds()
+            ga_config = self.config['ga_config'].copy()
+            ga_config['horizon'] = self.config['horizon']
+            ga_config['num_cpps'] = len(self.config['cpp_names'])
+            self.optimizer = self.optimizer_class(param_bounds, ga_config)
+    
     def _get_fallback_action(self, current_control_input):
         """Get safe fallback control action when optimizer fails.
         
@@ -777,6 +845,17 @@ class RobustMPCController:
         for scaler_name, scaler in self.scalers.items():
             if not hasattr(scaler, 'transform'):
                 raise ValueError(f"Scaler for '{scaler_name}' missing 'transform' method")
+        
+        # Validate optimizer reset configuration parameters
+        if 'setpoint_change_threshold' in self.config:
+            threshold = self.config['setpoint_change_threshold']
+            if not isinstance(threshold, (int, float)) or threshold <= 0:
+                raise ValueError("'setpoint_change_threshold' must be a positive number")
+        
+        if 'reset_optimizer_on_setpoint_change' in self.config:
+            reset_flag = self.config['reset_optimizer_on_setpoint_change']
+            if not isinstance(reset_flag, bool):
+                raise ValueError("'reset_optimizer_on_setpoint_change' must be a boolean")
                 
         if self.config.get('verbose', False):
             print("RobustMPCController validation passed")
