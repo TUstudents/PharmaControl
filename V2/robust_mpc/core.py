@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+import pandas as pd
 from .data_buffer import DataBuffer, StartupHistoryGenerator
 
 class RobustMPCController:
@@ -360,29 +361,48 @@ class RobustMPCController:
         horizon, num_cpps = plan_unscaled.shape
         
         if with_soft_sensors:
-            # Create extended array with soft sensors
+            # Create robust DataFrame-based soft sensor calculation
             cpp_full_names = self.config['cpp_full_names']
-            plan_with_sensors = np.zeros((horizon, len(cpp_full_names)))
             
-            # Copy basic CPPs
+            # Validate required variables for soft sensor calculations
+            required_base_vars = ['spray_rate', 'carousel_speed']
+            required_soft_vars = ['specific_energy', 'froude_number_proxy']
+            
+            missing_base = [var for var in required_base_vars if var not in cpp_full_names]
+            missing_soft = [var for var in required_soft_vars if var not in cpp_full_names]
+            
+            if missing_base:
+                raise ValueError(f"Missing required base variables for soft sensors: {missing_base}")
+            if missing_soft:
+                raise ValueError(f"Missing required soft sensor variables: {missing_soft}")
+            
+            # Initialize DataFrame with all cpp_full_names columns
+            plan_df = pd.DataFrame(
+                data=np.zeros((horizon, len(cpp_full_names))), 
+                columns=cpp_full_names
+            )
+            
+            # Copy basic CPPs by name (robust to column order changes)
             for i, cpp_name in enumerate(self.config['cpp_names']):
                 if i < num_cpps:
-                    plan_with_sensors[:, cpp_full_names.index(cpp_name)] = plan_unscaled[:, i]
+                    if cpp_name not in cpp_full_names:
+                        raise ValueError(f"CPP '{cpp_name}' not found in cpp_full_names")
+                    plan_df[cpp_name] = plan_unscaled[:, i]
             
-            # Calculate soft sensors using pharmaceutical process physics
-            spray_rate_idx = cpp_full_names.index('spray_rate')
-            carousel_speed_idx = cpp_full_names.index('carousel_speed')
-            specific_energy_idx = cpp_full_names.index('specific_energy')
-            froude_number_idx = cpp_full_names.index('froude_number_proxy')
+            # Calculate soft sensors using robust column-name-based approach
+            # CRITICAL: This approach is immune to column order changes
+            try:
+                # Specific energy: normalized spray rate × carousel speed interaction
+                plan_df['specific_energy'] = (plan_df['spray_rate'] * plan_df['carousel_speed']) / 1000.0
+                
+                # Froude number proxy: dimensionless mixing intensity measure  
+                plan_df['froude_number_proxy'] = (plan_df['carousel_speed'] ** 2) / 9.81
+                
+            except KeyError as e:
+                raise ValueError(f"Soft sensor calculation failed - missing column: {e}")
             
-            spray_rate = plan_with_sensors[:, spray_rate_idx]
-            carousel_speed = plan_with_sensors[:, carousel_speed_idx]
-            
-            # Specific energy: normalized spray rate × carousel speed interaction
-            plan_with_sensors[:, specific_energy_idx] = (spray_rate * carousel_speed) / 1000.0
-            
-            # Froude number proxy: dimensionless mixing intensity measure
-            plan_with_sensors[:, froude_number_idx] = (carousel_speed ** 2) / 9.81
+            # Convert back to numpy array for scaling
+            plan_with_sensors = plan_df.values
             
             # Scale all features using fitted scalers
             plan_scaled = np.zeros_like(plan_with_sensors)
@@ -692,6 +712,18 @@ class RobustMPCController:
         for cpp_name in self.config['cpp_names']:
             if cpp_name not in self.config['cpp_full_names']:
                 raise ValueError(f"CPP '{cpp_name}' not found in cpp_full_names")
+        
+        # Validate soft sensor configuration for robust pharmaceutical control
+        required_soft_sensor_base = ['spray_rate', 'carousel_speed']
+        required_soft_sensors = ['specific_energy', 'froude_number_proxy']
+        
+        missing_soft_base = [var for var in required_soft_sensor_base if var not in self.config['cpp_full_names']]
+        missing_soft_sensors = [var for var in required_soft_sensors if var not in self.config['cpp_full_names']]
+        
+        if missing_soft_base:
+            raise ValueError(f"Missing required base variables for soft sensor calculations: {missing_soft_base}")
+        if missing_soft_sensors:
+            raise ValueError(f"Missing required soft sensor variables in cpp_full_names: {missing_soft_sensors}")
         
         # Validate horizon and lookback
         if self.config['horizon'] <= 0:
