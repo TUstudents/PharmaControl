@@ -209,8 +209,11 @@ cd V1/docs && sphinx-build -b html . _build/html/
 # Build V2 documentation (Sphinx)
 cd V2/docs && sphinx-build -b html . _build/html/
 
+# Build V3 documentation (Sphinx)
+cd V3/docs && sphinx-build -b html . _build/html/
+
 # View documentation in browser
-# Open V1/docs/_build/html/index.html or V2/docs/_build/html/index.html
+# Open V1/docs/_build/html/index.html, V2/docs/_build/html/index.html, or V3/docs/_build/html/index.html
 ```
 
 ### **Running Controllers**

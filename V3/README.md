@@ -461,6 +461,7 @@ autonomous_controller = AutonomousController(
 ```bash
 # Setup advanced research environment
 cd V3
+source .venv/bin/activate
 uv pip install -e ".[dev,rl-advanced,xai-research,testing]"
 
 # Code quality for autonomous systems
@@ -479,6 +480,15 @@ python -m pytest tests/ --benchmark-only
 # Security scanning for autonomous systems
 bandit -r src/ services/
 safety check
+```
+
+### **Documentation**
+The V3 library includes comprehensive API documentation generated with Sphinx. After building the documentation, you can view it by opening `V3/docs/_build/html/index.html` in your browser.
+
+To quickly generate and build the documentation, you can use the provided script:
+```bash
+cd V3/docs
+./build_docs.sh
 ```
 
 ## 🔮 Roadmap & Development Status

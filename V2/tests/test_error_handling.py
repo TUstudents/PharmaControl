@@ -138,8 +138,21 @@ class TestErrorHandling:
             def optimize(self, fitness_func=None):
                 self.call_count += 1
                 if self.call_count == 1:
-                    # First call succeeds
-                    return np.array([[120.0, 500.0, 25.0]] * 10)  # Horizon length
+                    # First call succeeds - return scaled values (optimizer now works in scaled space)
+                    # The param_bounds should contain valid scaled constraint bounds
+                    # Just use middle of the bounds for each parameter
+                    horizon = self.config['horizon'] 
+                    num_cpps = self.config['num_cpps']
+                    solution = np.zeros((horizon, num_cpps))
+                    
+                    param_idx = 0
+                    for h in range(horizon):
+                        for c in range(num_cpps):
+                            min_bound, max_bound = self.param_bounds[param_idx]
+                            solution[h, c] = (min_bound + max_bound) / 2.0  # Middle of scaled bounds
+                            param_idx += 1
+                    
+                    return solution
                 else:
                     # Subsequent calls fail
                     raise RuntimeError("Optimization failed")
@@ -159,12 +172,17 @@ class TestErrorHandling:
         
         # First call should succeed
         action1 = controller.suggest_action(noisy_measurement, control_input, setpoint)
-        expected_action = np.array([120.0, 500.0, 25.0])
-        assert np.allclose(action1, expected_action)
+        # Optimizer returns middle of constraint bounds when unscaled
+        expected_action = np.array([
+            (test_config['cpp_constraints']['spray_rate']['min_val'] + test_config['cpp_constraints']['spray_rate']['max_val']) / 2.0,
+            (test_config['cpp_constraints']['air_flow']['min_val'] + test_config['cpp_constraints']['air_flow']['max_val']) / 2.0,
+            (test_config['cpp_constraints']['carousel_speed']['min_val'] + test_config['cpp_constraints']['carousel_speed']['max_val']) / 2.0
+        ])  # [140, 550, 35]
+        assert np.allclose(action1, expected_action, rtol=1e-10)
         
         # Second call should fail but return last successful action
         action2 = controller.suggest_action(noisy_measurement, control_input, setpoint)
-        assert np.allclose(action2, expected_action)  # Should be same as first successful action
+        assert np.allclose(action2, expected_action, rtol=1e-10)  # Should be same as first successful action
     
     def test_fallback_action_validation(self, mock_model, mock_estimator, test_config, test_scalers):
         """Test validation of fallback actions."""

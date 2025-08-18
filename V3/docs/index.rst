@@ -11,6 +11,7 @@ Welcome to PharmaControl V3's documentation!
    :caption: Contents:
 
    modules
+   services
 
 Indices and tables
 ==================
