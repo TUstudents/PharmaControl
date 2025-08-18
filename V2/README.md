@@ -478,7 +478,7 @@ pytest tests/ --benchmark-only
 # Setup development environment
 cd V2
 source .venv/bin/activate
-uv pip install -e ".[dev,testing]"
+uv pip install -e ".[dev,testing,docs]"
 
 # Code quality checks
 black robust_mpc/
@@ -489,7 +489,16 @@ mypy robust_mpc/
 pytest tests/ --cov=robust_mpc --cov-report=html
 
 # Build documentation
-cd docs && make html
+cd docs && ./build_docs.sh
+```
+
+### **Documentation**
+The V2 library includes comprehensive API documentation generated with Sphinx. After building the documentation, you can view it by opening `V2/docs/_build/html/index.html` in your browser.
+
+To quickly generate and build the documentation, you can use the provided script:
+```bash
+cd V2/docs
+./build_docs.sh
 ```
 
 ## 🔗 Quick Navigation

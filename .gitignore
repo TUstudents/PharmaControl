@@ -66,3 +66,12 @@ CLAUDE.md
 # Gemini
 .gemini/
 GEMINI.md
+
+#Qwen
+.qwen/
+QWEN.md
+
+#Sphinx documentation
+V1/docs/_build/
+V2/docs/_build/
+V3/docs/_build/

@@ -1,0 +1,14 @@
+After analyzing the robust_mpc library code, I've identified a critical bug in the
+  RobustMPCController class related to data scaling for the GeneticOptimizer. This bug
+  would prevent the optimizer from working correctly because the parameter bounds would
+   be in the wrong scale.
+
+  Here's the bug and the fix:
+
+   1. Bug Location: In V2/robust_mpc/core.py, the _get_param_bounds method (lines
+      501-505) generates parameter bounds for the GeneticOptimizer using unscaled
+      values, but the optimizer works with scaled control values.
+
+   2. Impact: This would cause the GeneticOptimizer to generate control plans with
+      values in the wrong range, leading to poor optimization results or errors.
+

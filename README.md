@@ -201,6 +201,18 @@ pytest V3/tests/ -v                    # V3 autonomous tests
 pytest --cov=V1.src --cov=V2.robust_mpc --cov=V3.src.autopharm_core
 ```
 
+### **Documentation**
+```bash
+# Build V1 documentation (Sphinx)
+cd V1/docs && sphinx-build -b html . _build/html/
+
+# Build V2 documentation (Sphinx)
+cd V2/docs && sphinx-build -b html . _build/html/
+
+# View documentation in browser
+# Open V1/docs/_build/html/index.html or V2/docs/_build/html/index.html
+```
+
 ### **Running Controllers**
 ```bash
 # V1: Notebook-based execution
