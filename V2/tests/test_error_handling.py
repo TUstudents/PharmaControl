@@ -92,12 +92,11 @@ class TestErrorHandling:
         
         # Create a failing optimizer class
         class FailingOptimizer:
-            def __init__(self, fitness_func, param_bounds, config):
-                self.fitness_func = fitness_func
+            def __init__(self, param_bounds, config):
                 self.param_bounds = param_bounds
                 self.config = config
                 
-            def optimize(self):
+            def optimize(self, fitness_func=None):
                 raise RuntimeError("Genetic algorithm failed to converge")
         
         # Create controller with failing optimizer
@@ -131,13 +130,12 @@ class TestErrorHandling:
         """Test fallback to last successful action after initial success."""
         
         class SometimesFailingOptimizer:
-            def __init__(self, fitness_func, param_bounds, config):
-                self.fitness_func = fitness_func
+            def __init__(self, param_bounds, config):
                 self.param_bounds = param_bounds
                 self.config = config
                 self.call_count = 0
                 
-            def optimize(self):
+            def optimize(self, fitness_func=None):
                 self.call_count += 1
                 if self.call_count == 1:
                     # First call succeeds
@@ -195,10 +193,10 @@ class TestErrorHandling:
         """Test that safe default fallback uses constraint midpoints."""
         
         class AlwaysFailingOptimizer:
-            def __init__(self, fitness_func, param_bounds, config):
+            def __init__(self, param_bounds, config):
                 pass
                 
-            def optimize(self):
+            def optimize(self, fitness_func=None):
                 raise RuntimeError("Always fails")
         
         controller = RobustMPCController(
@@ -228,10 +226,10 @@ class TestErrorHandling:
         """Test handling of optimizer returning None or empty result."""
         
         class NullOptimizer:
-            def __init__(self, fitness_func, param_bounds, config):
+            def __init__(self, param_bounds, config):
                 pass
                 
-            def optimize(self):
+            def optimize(self, fitness_func=None):
                 return None  # Invalid result
         
         controller = RobustMPCController(

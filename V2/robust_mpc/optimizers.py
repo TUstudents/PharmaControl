@@ -40,9 +40,6 @@ class GeneticOptimizer:
         - Success Rate: High reliability for global optima in complex landscapes
     
     Args:
-        fitness_function (callable): Objective function to minimize accepting control_plan
-            of shape (horizon, num_cpps) and returning scalar cost value.
-            Should incorporate tracking error, control effort, and constraint penalties.
         param_bounds (list): Parameter bounds as [(min₁, max₁), (min₂, max₂), ...] for each
             control variable at each time step. Length = horizon × num_cpps.
             Bounds should reflect physical actuator limits and safety constraints.
@@ -54,6 +51,10 @@ class GeneticOptimizer:
             - 'cx_prob': Crossover probability (default: 0.7)
             - 'mut_prob': Mutation probability (default: 0.2)
             - 'tournament_size': Selection tournament size (default: 3)
+        fitness_function (callable, optional): Objective function to minimize accepting 
+            control_plan of shape (horizon, num_cpps) and returning scalar cost value.
+            Can be provided during initialization or passed to optimize() method.
+            Should incorporate tracking error, control effort, and constraint penalties.
     
     Attributes:
         fitness_function (callable): Stored objective function
@@ -73,10 +74,10 @@ class GeneticOptimizer:
         >>> # Define parameter bounds for 5-step horizon, 3 CPPs
         >>> bounds = [(80, 180), (400, 700), (20, 40)] * 5  # spray, air, speed
         >>> config = {'horizon': 5, 'num_cpps': 3, 'population_size': 60}
-        >>> optimizer = GeneticOptimizer(mpc_fitness, bounds, config)
+        >>> optimizer = GeneticOptimizer(bounds, config)  # No fitness function in init
         >>> 
-        >>> # Find optimal control sequence
-        >>> best_solution, best_cost = optimizer.optimize()
+        >>> # Find optimal control sequence - fitness function passed at optimization time
+        >>> best_solution = optimizer.optimize(mpc_fitness)
         >>> optimal_action = best_solution[0, :]  # First control action
     
     Notes:
@@ -87,16 +88,17 @@ class GeneticOptimizer:
         - Automatic constraint handling through bound repair mechanisms
         - Suitable for non-differentiable and multi-modal objective functions
     """
-    def __init__(self, fitness_function, param_bounds, config):
+    def __init__(self, param_bounds, config, fitness_function=None):
         # Validate input types
-        if not callable(fitness_function):
-            raise TypeError("fitness_function must be callable")
         if not isinstance(param_bounds, list):
             raise TypeError("param_bounds must be a list")
         if not isinstance(config, dict):
             raise TypeError("config must be a dictionary")
+        # fitness_function is now optional and validated at optimization time
+        if fitness_function is not None and not callable(fitness_function):
+            raise TypeError("fitness_function must be callable")
             
-        self.fitness_function = fitness_function
+        self.fitness_function = fitness_function  # Can be None, set at optimization time
         self.param_bounds = param_bounds # List of (min, max) for each gene
         self.config = config
         self.n_params = len(param_bounds) # Number of genes in an individual
@@ -273,7 +275,7 @@ class GeneticOptimizer:
                 individual[i] = low
         return individual
 
-    def optimize(self):
+    def optimize(self, fitness_function=None):
         """Execute genetic algorithm optimization to find optimal control sequence.
         
         Performs evolutionary optimization using the configured genetic algorithm
@@ -292,6 +294,11 @@ class GeneticOptimizer:
                - Replacement: Generational replacement strategy
             4. Return best solution from Hall of Fame
         
+        Args:
+            fitness_function (callable, optional): Objective function to minimize.
+                If not provided, uses the fitness function from initialization.
+                Must accept control_plan of shape (horizon, num_cpps) and return scalar cost.
+        
         Returns:
             np.ndarray: Optimal control sequence of shape (horizon, num_cpps) 
                 representing the best control plan found during optimization.
@@ -299,36 +306,59 @@ class GeneticOptimizer:
         
         Raises:
             RuntimeError: If optimization fails to find valid solutions
-            ValueError: If configuration parameters are invalid
+            ValueError: If configuration parameters are invalid or no fitness function available
         
         Notes:
             - Population diversity maintained through tournament selection
             - Convergence typically achieved within 50-200 generations
             - Best solution preserved in Hall of Fame regardless of final population
             - Automatic constraint handling through repair operator
+            - Fitness function can be updated per optimization for different objectives
         """
-        pop = self.toolbox.population(n=self.config['population_size'])
-
-        # Use a hall of fame to keep track of the best individual found so far
-        hof = tools.HallOfFame(1)
-
-        # Run the evolution
-        # Handle different config key names for compatibility
-        crossover_prob = self.config.get('crossover_prob', self.config.get('cx_prob', 0.7))
-        mutation_prob = self.config.get('mutation_prob', self.config.get('mut_prob', 0.2))
+        # Use provided fitness function or fall back to instance fitness function
+        current_fitness_function = fitness_function or self.fitness_function
         
-        algorithms.eaSimple(
-            pop,
-            self.toolbox,
-            cxpb=crossover_prob,
-            mutpb=mutation_prob,
-            ngen=self.config['num_generations'],
-            halloffame=hof,
-            verbose=False
-        )
+        if current_fitness_function is None:
+            raise ValueError("No fitness function available. Provide one during initialization or optimization.")
+        
+        if not callable(current_fitness_function):
+            raise TypeError("fitness_function must be callable")
+        
+        # Update the fitness function for this optimization run
+        # Store current fitness function temporarily for evaluation
+        previous_fitness_function = self.fitness_function
+        self.fitness_function = current_fitness_function
+        
+        # Re-register the evaluation function with the current fitness function
+        self.toolbox.register("evaluate", self._evaluate)
+        
+        try:
+            pop = self.toolbox.population(n=self.config['population_size'])
 
-        # Reshape the best individual back into a plan
-        best_individual = hof[0]
-        best_plan = np.array(best_individual).reshape(self.config['horizon'], self.config['num_cpps'])
+            # Use a hall of fame to keep track of the best individual found so far
+            hof = tools.HallOfFame(1)
 
-        return best_plan
+            # Run the evolution
+            # Handle different config key names for compatibility
+            crossover_prob = self.config.get('crossover_prob', self.config.get('cx_prob', 0.7))
+            mutation_prob = self.config.get('mutation_prob', self.config.get('mut_prob', 0.2))
+            
+            algorithms.eaSimple(
+                pop,
+                self.toolbox,
+                cxpb=crossover_prob,
+                mutpb=mutation_prob,
+                ngen=self.config['num_generations'],
+                halloffame=hof,
+                verbose=False
+            )
+
+            # Reshape the best individual back into a plan
+            best_individual = hof[0]
+            best_plan = np.array(best_individual).reshape(self.config['horizon'], self.config['num_cpps'])
+
+            return best_plan
+            
+        finally:
+            # Restore previous fitness function to maintain instance state
+            self.fitness_function = previous_fitness_function

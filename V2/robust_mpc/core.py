@@ -134,6 +134,18 @@ class RobustMPCController:
         # Startup history generator for initial operation
         self.startup_generator = None
         self._initialization_complete = False
+        
+        # Initialize optimizer as instance variable for efficiency
+        # This prevents creating new DEAP populations on every control step
+        if optimizer_class is not None:
+            param_bounds = self._get_param_bounds()
+            # Create complete GA config with required parameters
+            ga_config = config['ga_config'].copy()
+            ga_config['horizon'] = config['horizon']
+            ga_config['num_cpps'] = len(config['cpp_names'])
+            self.optimizer = optimizer_class(param_bounds, ga_config)
+        else:
+            self.optimizer = None
 
     def _update_disturbance_estimate(self, smooth_state, setpoint):
         """Updates the integral error term for offset-free control."""
@@ -216,12 +228,14 @@ class RobustMPCController:
         target_plan = np.tile(setpoint, (self.config['horizon'], 1))
         fitness_func = self._get_fitness_function(past_cmas_scaled, past_cpps_scaled, target_plan)
 
-        # 6. Instantiate and run the optimizer with error handling
-        param_bounds = self._get_param_bounds()
-        
+        # 6. Use existing optimizer instance with current fitness function
+        if self.optimizer is None:
+            if self.config.get('verbose', False):
+                print("No optimizer available, using fallback control strategy")
+            return self._get_fallback_action(control_input)
+            
         try:
-            optimizer = self.optimizer_class(fitness_func, param_bounds, self.config['ga_config'])
-            best_plan = optimizer.optimize()
+            best_plan = self.optimizer.optimize(fitness_func)
             
             # Validate optimization result
             if best_plan is None or best_plan.size == 0:

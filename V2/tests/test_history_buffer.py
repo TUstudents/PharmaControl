@@ -313,12 +313,11 @@ class TestRobustMPCWithRealHistory:
         """Test that history buffer is updated during suggest_action calls."""
         
         class TrackingOptimizer:
-            def __init__(self, fitness_func, param_bounds, config):
-                self.fitness_func = fitness_func
+            def __init__(self, param_bounds, config):
                 self.param_bounds = param_bounds
                 self.config = config
                 
-            def optimize(self):
+            def optimize(self, fitness_func=None):
                 return np.array([[120.0, 500.0, 25.0]] * test_config['horizon'])
         
         controller = RobustMPCController(
@@ -364,10 +363,10 @@ class TestRobustMPCWithRealHistory:
         """Test smooth transition from startup history to real data."""
         
         class TrackingOptimizer:
-            def __init__(self, fitness_func, param_bounds, config):
+            def __init__(self, param_bounds, config):
                 pass
                 
-            def optimize(self):
+            def optimize(self, fitness_func=None):
                 return np.array([[120.0, 500.0, 25.0]] * test_config['horizon'])
         
         controller = RobustMPCController(
@@ -414,10 +413,10 @@ class TestRobustMPCWithRealHistory:
         """Test that controller tracks realistic control trajectories."""
         
         class TrackingOptimizer:
-            def __init__(self, fitness_func, param_bounds, config):
+            def __init__(self, param_bounds, config):
                 pass
                 
-            def optimize(self):
+            def optimize(self, fitness_func=None):
                 return np.array([[120.0, 500.0, 25.0]] * test_config['horizon'])
         
         controller = RobustMPCController(
