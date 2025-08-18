@@ -120,8 +120,9 @@ class RobustMPCController:
         # Initialize the disturbance estimate for Integral Action
         self.disturbance_estimate = np.zeros(len(config['cma_names']))
         
-        # Initialize fallback control action (safe defaults)
-        self._last_successful_action = None
+        # Pre-initialize fallback control action with guaranteed safe defaults
+        # CRITICAL: Ensures safe fallback is available from very first control step
+        self._last_successful_action = self._calculate_safe_default_action()
         
         # Initialize rolling history buffer for real trajectory tracking
         buffer_size = config.get('history_buffer_size', max(100, 3 * config['lookback']))
@@ -621,6 +622,44 @@ class RobustMPCController:
                 
         return param_bounds
     
+    def _calculate_safe_default_action(self):
+        """Calculate safe default control action using constraint midpoints.
+        
+        This method provides guaranteed safe control values by using the midpoint
+        of each parameter's constraint bounds. These values are always within 
+        operational limits and provide a conservative, stable operating point
+        for pharmaceutical process control.
+        
+        Returns:
+            np.ndarray: Safe control action with constraint midpoint values
+            
+        Raises:
+            ValueError: If required constraints are missing or invalid
+            
+        Notes:
+            - Called during initialization to ensure safe fallback always available
+            - Uses constraint midpoints as conservative safe operating point
+            - Essential for pharmaceutical manufacturing safety during startup
+        """
+        safe_action = np.zeros(len(self.config['cpp_names']))
+        cpp_config = self.config['cpp_constraints']
+        
+        for i, name in enumerate(self.config['cpp_names']):
+            if name in cpp_config:
+                min_val = cpp_config[name]['min_val']
+                max_val = cpp_config[name]['max_val']
+                
+                # Validate constraint bounds
+                if min_val >= max_val:
+                    raise ValueError(f"Invalid constraint bounds for '{name}': min_val={min_val} >= max_val={max_val}")
+                
+                # Use conservative midpoint as safe default
+                safe_action[i] = (min_val + max_val) / 2.0
+            else:
+                raise ValueError(f"Missing constraint configuration for CPP '{name}' - required for safe fallback")
+                
+        return safe_action
+    
     def _get_fallback_action(self, current_control_input):
         """Get safe fallback control action when optimizer fails.
         
@@ -645,20 +684,8 @@ class RobustMPCController:
             if self._validate_control_action(current_control_input):
                 return current_control_input.copy()
         
-        # Strategy 3: Use safe default control values (midpoint of constraints)
-        safe_action = np.zeros(len(self.config['cpp_names']))
-        cpp_config = self.config['cpp_constraints']
-        
-        for i, name in enumerate(self.config['cpp_names']):
-            if name in cpp_config:
-                min_val = cpp_config[name]['min_val']
-                max_val = cpp_config[name]['max_val']
-                safe_action[i] = (min_val + max_val) / 2.0
-            else:
-                # If no constraints, use a conservative default
-                safe_action[i] = 0.0
-                
-        return safe_action
+        # Strategy 3: Use pre-calculated safe default control values
+        return self._calculate_safe_default_action()
     
     def _validate_control_action(self, action):
         """Validate that control action satisfies constraints.
