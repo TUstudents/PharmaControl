@@ -7,6 +7,7 @@ and control actions, essential for accurate model predictions in Model Predictiv
 
 import numpy as np
 import threading
+import warnings
 from typing import Optional, Tuple, Union
 from collections import deque
 import time
@@ -65,6 +66,10 @@ class DataBuffer:
     def add_measurement(self, measurement: np.ndarray, timestamp: Optional[float] = None) -> bool:
         """Add CMA measurement to the buffer.
         
+        DEPRECATION WARNING: This method is deprecated due to race condition vulnerability.
+        Use add_sample() instead for atomic measurement+control operations in pharmaceutical
+        manufacturing to prevent data misalignment and ensure process control safety.
+        
         Args:
             measurement (np.ndarray): CMA values, shape (cma_features,)
             timestamp (float, optional): Unix timestamp. If None, uses current time.
@@ -75,6 +80,15 @@ class DataBuffer:
         Raises:
             ValueError: If measurement shape is incorrect or contains invalid values
         """
+        # DEPRECATION WARNING for pharmaceutical safety
+        warnings.warn(
+            "add_measurement() is deprecated due to race condition vulnerability. "
+            "Use add_sample(measurement, control_action, timestamp) for atomic operations "
+            "to prevent data misalignment in pharmaceutical process control.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        
         if timestamp is None:
             timestamp = time.time()
             
@@ -107,6 +121,10 @@ class DataBuffer:
     def add_control_action(self, control_action: np.ndarray, timestamp: Optional[float] = None) -> bool:
         """Add CPP control action to the buffer.
         
+        DEPRECATION WARNING: This method is deprecated due to race condition vulnerability.
+        Use add_sample() instead for atomic measurement+control operations in pharmaceutical
+        manufacturing to prevent data misalignment and ensure process control safety.
+        
         Args:
             control_action (np.ndarray): CPP values, shape (cpp_features,)
             timestamp (float, optional): Unix timestamp. If None, uses current time.
@@ -117,6 +135,15 @@ class DataBuffer:
         Raises:
             ValueError: If control action shape is incorrect or contains invalid values
         """
+        # DEPRECATION WARNING for pharmaceutical safety
+        warnings.warn(
+            "add_control_action() is deprecated due to race condition vulnerability. "
+            "Use add_sample(measurement, control_action, timestamp) for atomic operations "
+            "to prevent data misalignment in pharmaceutical process control.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        
         if timestamp is None:
             timestamp = time.time()
             
@@ -147,6 +174,76 @@ class DataBuffer:
                 
             return True
             
+    def add_sample(self, measurement: np.ndarray, control_action: np.ndarray, 
+                   timestamp: Optional[float] = None) -> bool:
+        """Atomically add complete measurement-control-timestamp sample.
+        
+        CRITICAL SAFETY FIX: This method prevents the race condition vulnerability where
+        separate add_measurement() and add_control_action() calls could create data
+        misalignment in multi-threaded pharmaceutical manufacturing environments.
+        
+        Args:
+            measurement (np.ndarray): CMA values, shape (cma_features,)
+            control_action (np.ndarray): CPP values, shape (cpp_features,)
+            timestamp (float, optional): Unix timestamp. If None, uses current time.
+            
+        Returns:
+            bool: True if sample was added successfully, False if validation failed
+            
+        Raises:
+            ValueError: If measurement or control action validation fails
+            
+        Notes:
+            - All buffer updates (CMA, CPP, timestamp) are performed atomically
+            - If any validation fails, no buffers are modified (rollback safety)
+            - Preferred method for pharmaceutical process control data integrity
+            - Eliminates race condition between measurement and control action addition
+        """
+        if timestamp is None:
+            timestamp = time.time()
+            
+        # Pre-validate both inputs before any buffer modifications (rollback safety)
+        # Measurement validation
+        if not isinstance(measurement, np.ndarray):
+            raise ValueError(f"Measurement must be numpy array, got {type(measurement)}")
+            
+        if measurement.shape != (self.cma_features,):
+            raise ValueError(f"Expected measurement shape ({self.cma_features},), got {measurement.shape}")
+            
+        if not np.all(np.isfinite(measurement)):
+            self._validation_errors += 1
+            raise ValueError("Measurement contains non-finite values (NaN/inf)")
+            
+        # Control action validation
+        if not isinstance(control_action, np.ndarray):
+            raise ValueError(f"Control action must be numpy array, got {type(control_action)}")
+            
+        if control_action.shape != (self.cpp_features,):
+            raise ValueError(f"Expected control action shape ({self.cpp_features},), got {control_action.shape}")
+            
+        if not np.all(np.isfinite(control_action)):
+            self._validation_errors += 1
+            raise ValueError("Control action contains non-finite values (NaN/inf)")
+            
+        # ATOMIC OPERATION: Single lock for entire sample addition
+        with self._lock:
+            # Sequence validation
+            if self.validate_sequence and self._last_timestamp is not None:
+                if timestamp < self._last_timestamp:
+                    self._sequence_errors += 1
+                    raise ValueError(f"Timestamp {timestamp} is before last timestamp {self._last_timestamp}")
+                    
+            # Atomically update all three buffers (no partial updates possible)
+            self._cma_buffer.append(measurement.copy())
+            self._cpp_buffer.append(control_action.copy())
+            self._timestamp_buffer.append(timestamp)
+            
+            # Update tracking state
+            self._last_timestamp = timestamp
+            self._sample_count += 1
+            
+            return True
+            
     def get_model_inputs(self, lookback: int) -> Tuple[np.ndarray, np.ndarray]:
         """Get historical data formatted for model input.
         
@@ -163,7 +260,30 @@ class DataBuffer:
             raise ValueError(f"Lookback must be positive, got {lookback}")
             
         with self._lock:
-            available_samples = min(len(self._cma_buffer), len(self._cpp_buffer))
+            # CRITICAL SAFETY CHECK: Validate buffer synchronization
+            cma_length = len(self._cma_buffer)
+            cpp_length = len(self._cpp_buffer)
+            timestamp_length = len(self._timestamp_buffer)
+            
+            # Detect race condition data misalignment
+            if cma_length != cpp_length:
+                warnings.warn(
+                    f"CRITICAL: Buffer misalignment detected! CMA buffer has {cma_length} samples, "
+                    f"CPP buffer has {cpp_length} samples. This indicates a race condition occurred. "
+                    f"Use add_sample() for atomic operations to prevent pharmaceutical control corruption.",
+                    UserWarning,
+                    stacklevel=2
+                )
+                
+            if cma_length != timestamp_length:
+                warnings.warn(
+                    f"Buffer-timestamp misalignment detected! CMA buffer: {cma_length}, "
+                    f"timestamp buffer: {timestamp_length}. Data integrity compromised.",
+                    UserWarning,
+                    stacklevel=2
+                )
+            
+            available_samples = min(cma_length, cpp_length)
             
             if available_samples < lookback:
                 raise ValueError(f"Insufficient data: need {lookback} samples, have {available_samples}")

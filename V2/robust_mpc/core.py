@@ -215,13 +215,21 @@ class RobustMPCController:
         Returns:
             np.ndarray: Optimal control action for next time step
         """
+        # 0. CRITICAL SAFETY CHECK: Validate buffer integrity for pharmaceutical manufacturing
+        if len(self.history_buffer) > 0:
+            cma_len = len(self.history_buffer._cma_buffer)
+            cpp_len = len(self.history_buffer._cpp_buffer)
+            if cma_len != cpp_len:
+                if self.config.get('verbose', False):
+                    print(f"WARNING: Buffer misalignment detected - CMA: {cma_len}, CPP: {cpp_len}")
+        
         # 1. Get a clean state estimate
         smooth_state = self.estimator.estimate(noisy_measurement, control_input)
 
         # 2. Update history buffer with real data (critical for accurate predictions)
+        # CRITICAL SAFETY FIX: Use atomic operation to prevent race condition data misalignment
         try:
-            self.history_buffer.add_measurement(smooth_state, timestamp)
-            self.history_buffer.add_control_action(control_input, timestamp)
+            self.history_buffer.add_sample(smooth_state, control_input, timestamp)
         except Exception as e:
             if self.config.get('verbose', False):
                 print(f"Warning: Failed to update history buffer: {e}")
