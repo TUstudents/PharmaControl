@@ -4,8 +4,8 @@
 # Activate the virtual environment
 source ../../.venv/bin/activate
 
-# Generate API documentation
-sphinx-apidoc -o . ../src/ --force
+# Add the V3 src directory to PYTHONPATH for autodoc
+export PYTHONPATH="/home/feynman/projects/PharmaControl/V3/src:${PYTHONPATH}"
 
 # Build the documentation
 sphinx-build -b html . _build/html

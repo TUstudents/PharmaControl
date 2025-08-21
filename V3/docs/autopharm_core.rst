@@ -1,5 +1,10 @@
-autopharm\_core package
-=======================
+AutoPharm Core Package
+======================
+
+.. automodule:: autopharm_core
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 Subpackages
 -----------
@@ -11,11 +16,3 @@ Subpackages
    autopharm_core.learning
    autopharm_core.rl
    autopharm_core.xai
-
-Module contents
----------------
-
-.. automodule:: autopharm_core
-   :members:
-   :show-inheritance:
-   :undoc-members:

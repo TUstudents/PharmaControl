@@ -483,9 +483,18 @@ safety check
 ```
 
 ### **Documentation**
-The V3 library includes comprehensive API documentation generated with Sphinx. After building the documentation, you can view it by opening `V3/docs/_build/html/index.html` in your browser.
+The V3 library includes comprehensive API documentation generated with Sphinx. The documentation covers all modules in the AutoPharm Core library, including:
+
+* `autopharm_core`: Main package
+* `autopharm_core.common`: Common types and utilities
+* `autopharm_core.learning`: Online learning components
+* `autopharm_core.rl`: Reinforcement learning environment
+* `autopharm_core.xai`: Explainable AI components
+
+After building the documentation, you can view it by opening `V3/docs/_build/html/index.html` in your browser.
 
 To quickly generate and build the documentation, you can use the provided script:
+
 ```bash
 cd V3/docs
 ./build_docs.sh
