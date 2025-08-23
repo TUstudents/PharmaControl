@@ -319,7 +319,8 @@ class V1ControllerAdapter:
             else:
                 target_tiled = setpoint
 
-            # Call V1 controller with unscaled DataFrame interface
+            # Call V1 controller with correct positional arguments
+            # V1 controller signature: suggest_action(self, past_cmas, past_cpps, target_cmas)
             action = self.v1_controller.suggest_action(past_cmas_df, past_cpps_df, target_tiled)
 
             # Validate V1 controller output
