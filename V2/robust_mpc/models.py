@@ -502,9 +502,11 @@ def load_trained_model(checkpoint_path, model_class=None, device='cpu', validate
                     pass  # Use defaults
             validate_model_functionality(model, val_cma_features, val_cpp_features)
             print("✅ Model validation passed")
-        except Exception as e:
-            if not hasattr(e, '__suppress_validation__'):
+        except RuntimeError as e:
+            if hasattr(e, '__suppress_validation__'):
                 print(f"⚠️  Model validation warning: {e}")
+            else:
+                raise
     
     param_count = sum(p.numel() for p in model.parameters())
     print(f"✅ Model loaded successfully: {param_count:,} parameters")
@@ -550,7 +552,9 @@ def validate_model_functionality(model, cma_features=2, cpp_features=5):
                 assert torch.all(std_pred >= 0), "Standard deviation must be non-negative"
                 
         except Exception as e:
-            raise RuntimeError(f"Model functionality validation failed: {e}")
+            exc = RuntimeError(f"Model functionality validation failed: {e}")
+            setattr(exc, '__suppress_validation__', True)
+            raise exc
 
 
 
