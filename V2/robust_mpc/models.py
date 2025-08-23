@@ -487,21 +487,15 @@ def load_trained_model(checkpoint_path, model_class=None, device='cpu', validate
     
     # Validate model functionality
     if validate:
-        try:
-            # Extract features for validation - use defaults to avoid type issues
-            val_cma_features = 2
-            val_cpp_features = 5
-            
-            # Try to get actual features if available
-            if hasattr(model, 'cma_features'):
-                try:
-                    if isinstance(model.cma_features, int):
-                        val_cma_features = model.cma_features
-                        val_cpp_features = model.cpp_features
-                except:
-                    pass  # Use defaults
-            validate_model_functionality(model, val_cma_features, val_cpp_features)
-            print("✅ Model validation passed")
+            try:
+                # Extract features for validation, using defaults for backward compatibility
+                val_cma_features = arch_params.get('cma_features', 2)
+                val_cpp_features = arch_params.get('cpp_features', 5)
+                lookback = arch_params.get('lookback', 10)
+                horizon = arch_params.get('horizon', 5)
+
+                validate_model_functionality(model, val_cma_features, val_cpp_features, lookback, horizon)
+                print("✅ Model validation passed")
         except RuntimeError as e:
             if hasattr(e, '__suppress_validation__'):
                 print(f"⚠️  Model validation warning: {e}")
@@ -514,13 +508,15 @@ def load_trained_model(checkpoint_path, model_class=None, device='cpu', validate
     return model
 
 
-def validate_model_functionality(model, cma_features=2, cpp_features=5):
+def validate_model_functionality(model, cma_features=2, cpp_features=5, lookback=10, horizon=5):
     """Test that model can perform forward pass and basic operations.
     
     Args:
         model (torch.nn.Module): Model to validate
         cma_features (int): Number of CMA input features
         cpp_features (int): Number of CPP input features
+        lookback (int): Lookback window size for validation
+        horizon (int): Horizon size for validation
         
     Raises:
         RuntimeError: If model validation fails
@@ -530,9 +526,9 @@ def validate_model_functionality(model, cma_features=2, cpp_features=5):
     model.eval()
     
     # Create test inputs
-    batch_size, seq_len, horizon = 1, 10, 5
-    test_past_cmas = torch.randn(batch_size, seq_len, cma_features)
-    test_past_cpps = torch.randn(batch_size, seq_len, cpp_features)
+    batch_size = 1
+    test_past_cmas = torch.randn(batch_size, lookback, cma_features)
+    test_past_cpps = torch.randn(batch_size, lookback, cpp_features)
     test_future_cpps = torch.randn(batch_size, horizon, cpp_features)
     
     with torch.no_grad():
