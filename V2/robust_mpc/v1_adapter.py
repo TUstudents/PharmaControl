@@ -255,43 +255,21 @@ class V1ControllerAdapter:
         """
         Convert rolling buffer to pandas DataFrames required by V1 controller.
         
-        CRITICAL FIX: Scales the data before passing to V1 controller.
-        V1 controller expects SCALED data (0-1 range) like training data,
-        but adapter history contains UNSCALED engineering units.
+        This method produces UN SCALED DataFrames of physical process data,
+        as expected by the V1 controller's `suggest_action` method, which
+        handles its own internal scaling.
         
         Returns:
-            Tuple[pd.DataFrame, pd.DataFrame]: (scaled_past_cmas_df, scaled_past_cpps_df) for V1 interface
-            
-        Notes:
-            - Scales data using V1 controller's fitted scalers
-            - Maintains V1 controller's expected DataFrame interface  
-            - Includes V2-identical soft sensor features for fair comparison
+            Tuple[pd.DataFrame, pd.DataFrame]: (unscaled_past_cmas_df, unscaled_past_cpps_df)
         """
         history_list = list(self.history_buffer)
         full_df = pd.DataFrame(history_list)
         
-        # Extract unscaled DataFrames
+        # V1 Controller expects unscaled data and handles its own scaling internally.
         unscaled_past_cmas_df = full_df[self.cma_names]
         unscaled_past_cpps_df = full_df[self.cpp_full_names]
         
-        # CRITICAL FIX: Scale the data using V1 controller's scalers
-        # V1 controller expects scaled data like training data (0-1 range)
-        
-        # Scale CMA data
-        scaled_past_cmas_df = unscaled_past_cmas_df.copy()
-        for col in self.cma_names:
-            if col in self.v1_controller.scalers:
-                scaler = self.v1_controller.scalers[col]
-                scaled_past_cmas_df[col] = scaler.transform(unscaled_past_cmas_df[[col]]).flatten()
-        
-        # Scale CPP data
-        scaled_past_cpps_df = unscaled_past_cpps_df.copy() 
-        for col in self.cpp_full_names:
-            if col in self.v1_controller.scalers:
-                scaler = self.v1_controller.scalers[col]
-                scaled_past_cpps_df[col] = scaler.transform(unscaled_past_cpps_df[[col]]).flatten()
-        
-        return scaled_past_cmas_df, scaled_past_cpps_df
+        return unscaled_past_cmas_df, unscaled_past_cpps_df
 
     def suggest_action(self, current_cmas: Dict[str, float], current_cpps: Dict[str, float], 
                       setpoint: np.ndarray) -> np.ndarray:
@@ -340,32 +318,23 @@ class V1ControllerAdapter:
             else:
                 target_tiled = setpoint
             
-            # Call V1 controller with properly scaled DataFrame interface
-            scaled_action = self.v1_controller.suggest_action(
+            # Call V1 controller with unscaled DataFrame interface
+            action = self.v1_controller.suggest_action(
                 past_cmas_df, 
                 past_cpps_df, 
                 target_tiled
             )
             
             # Validate V1 controller output
-            if scaled_action is None or not isinstance(scaled_action, np.ndarray):
+            if action is None or not isinstance(action, np.ndarray):
                 raise ValueError("V1 controller returned invalid action")
-            if scaled_action.size != len(self.cpp_names):
-                raise ValueError(f"Action size mismatch: expected {len(self.cpp_names)}, got {scaled_action.size}")
-            if not np.all(np.isfinite(scaled_action)):
+            if action.size != len(self.cpp_names):
+                raise ValueError(f"Action size mismatch: expected {len(self.cpp_names)}, got {action.size}")
+            if not np.all(np.isfinite(action)):
                 raise ValueError("V1 controller returned non-finite action values")
             
-            # CRITICAL FIX: Unscale the action to engineering units
-            # V1 controller returns scaled actions (0-1), but we need engineering units
-            unscaled_action = scaled_action.copy()
-            for i, cpp_name in enumerate(self.cpp_names):
-                if cpp_name in self.v1_controller.scalers:
-                    scaler = self.v1_controller.scalers[cpp_name]
-                    # Transform single value by reshaping to DataFrame format
-                    scaled_value_df = pd.DataFrame([[scaled_action[i]]], columns=[cpp_name])
-                    unscaled_action[i] = scaler.inverse_transform(scaled_value_df)[0, 0]
-            
-            return unscaled_action
+            # The V1 controller returns unscaled, physical values directly.
+            return action
             
         except Exception as e:
             raise RuntimeError(f"V1 controller failed during suggest_action: {e}")

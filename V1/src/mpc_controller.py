@@ -183,7 +183,7 @@ class MPCController:
         total_cost = target_error + self.config['control_effort_lambda'] * control_effort
         return total_cost.item()
 
-    def suggest_action(self, past_cmas_unscaled: pd.DataFrame, past_cpps_unscaled: pd.DataFrame, target_cmas_unscaled: np.ndarray) -> np.ndarray:
+    def suggest_action(self, past_cmas: pd.DataFrame, past_cpps: pd.DataFrame, target_cmas: np.ndarray) -> np.ndarray:
         """Compute optimal control action using Model Predictive Control optimization.
         
         Performs discrete MPC optimization by:
@@ -197,14 +197,14 @@ class MPCController:
         within the discretized domain.
         
         Args:
-            past_cmas_unscaled: Historical critical material attribute data as DataFrame.
+            past_cmas: Historical critical material attribute data as DataFrame.
                 Must contain columns matching config['cma_names']. Data should be
                 in original engineering units (unscaled). Shape: (lookback, num_cmas)
-            past_cpps_unscaled: Historical critical process parameter data as DataFrame.
+            past_cpps: Historical critical process parameter data as DataFrame.
                 Must contain columns matching config['cpp_names_and_soft_sensors'].
                 Includes both control variables and calculated soft sensors.
                 Data in original engineering units. Shape: (lookback, num_features)
-            target_cmas_unscaled: Target setpoints for critical material attributes.
+            target_cmas: Target setpoints for critical material attributes.
                 Array of shape (horizon, num_cmas) in original engineering units.
                 Typically constant setpoints repeated over the prediction horizon.
         
@@ -226,7 +226,7 @@ class MPCController:
             - Soft sensors (derived variables) are automatically calculated
         """
         # Extract current CPPs directly from unscaled data
-        current_cpps_unscaled = past_cpps_unscaled.iloc[-1][self.config['cpp_names']].values
+        current_cpps_unscaled = past_cpps.iloc[-1][self.config['cpp_names']].values
         # 1. Generate all possible actions
         candidates_unscaled = self._generate_control_lattice(current_cpps_unscaled)
 
@@ -242,20 +242,20 @@ class MPCController:
         best_action_sequence = None
 
         # Prepare scaled target tensor once using proper DataFrame
-        target_cmas_scaled = np.zeros_like(target_cmas_unscaled)
+        target_cmas_scaled = np.zeros_like(target_cmas)
         for i, name in enumerate(self.config['cma_names']):
-            target_df = pd.DataFrame(target_cmas_unscaled[:, i].reshape(-1, 1), columns=[name])
+            target_df = pd.DataFrame(target_cmas[:, i].reshape(-1, 1), columns=[name])
             target_cmas_scaled[:, i] = self.scalers[name].transform(target_df).flatten()
         target_cmas_tensor = torch.tensor(target_cmas_scaled, dtype=torch.float32).unsqueeze(0).to(self.device)
 
         # Scale the historical data for model input
-        past_cmas_scaled = pd.DataFrame(index=past_cmas_unscaled.index)
+        past_cmas_scaled = pd.DataFrame(index=past_cmas.index)
         for col in self.config['cma_names']:
-            past_cmas_scaled[col] = self.scalers[col].transform(past_cmas_unscaled[[col]]).flatten()
+            past_cmas_scaled[col] = self.scalers[col].transform(past_cmas[[col]]).flatten()
             
-        past_cpps_scaled = pd.DataFrame(index=past_cpps_unscaled.index)
+        past_cpps_scaled = pd.DataFrame(index=past_cpps.index)
         for col in self.config['cpp_names_and_soft_sensors']:
-            past_cpps_scaled[col] = self.scalers[col].transform(past_cpps_unscaled[[col]]).flatten()
+            past_cpps_scaled[col] = self.scalers[col].transform(past_cpps[[col]]).flatten()
         
         # Convert DataFrames to numpy arrays for tensor creation
         past_cmas_values = past_cmas_scaled.values
