@@ -487,15 +487,15 @@ def load_trained_model(checkpoint_path, model_class=None, device='cpu', validate
     
     # Validate model functionality
     if validate:
-            try:
-                # Extract features for validation, using defaults for backward compatibility
-                val_cma_features = arch_params.get('cma_features', 2)
-                val_cpp_features = arch_params.get('cpp_features', 5)
-                lookback = arch_params.get('lookback', 10)
-                horizon = arch_params.get('horizon', 5)
+        try:
+            # Extract features for validation, using defaults for backward compatibility
+            val_cma_features = arch_params.get('cma_features', 2)
+            val_cpp_features = arch_params.get('cpp_features', 5)
+            lookback = arch_params.get('lookback', 10)
+            horizon = arch_params.get('horizon', 5)
 
-                validate_model_functionality(model, val_cma_features, val_cpp_features, lookback, horizon)
-                print("✅ Model validation passed")
+            validate_model_functionality(model, val_cma_features, val_cpp_features, lookback, horizon)
+            print("✅ Model validation passed")
         except RuntimeError as e:
             if hasattr(e, '__suppress_validation__'):
                 print(f"⚠️  Model validation warning: {e}")

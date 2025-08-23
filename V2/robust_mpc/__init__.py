@@ -96,6 +96,40 @@ def _get_RobustMPCController():
                 raise ImportError(f"Failed to import RobustMPCController: {e}")
     return _RobustMPCController
 
+# V1 Integration Classes - Lazy loading
+_V1ControllerAdapter = None
+_V1_MPC_Wrapper = None
+
+def _get_V1ControllerAdapter():
+    """Get V1ControllerAdapter class with lazy loading."""
+    global _V1ControllerAdapter
+    if _V1ControllerAdapter is None:
+        try:
+            from .v1_adapter import V1ControllerAdapter
+            _V1ControllerAdapter = V1ControllerAdapter
+        except ImportError as e:
+            try:
+                v1_adapter_module = importlib.import_module('V2.robust_mpc.v1_adapter')
+                _V1ControllerAdapter = v1_adapter_module.V1ControllerAdapter
+            except ImportError:
+                raise ImportError(f"Failed to import V1ControllerAdapter: {e}")
+    return _V1ControllerAdapter
+
+def _get_V1_MPC_Wrapper():
+    """Get V1_MPC_Wrapper class with lazy loading."""
+    global _V1_MPC_Wrapper
+    if _V1_MPC_Wrapper is None:
+        try:
+            from .v1_adapter import V1_MPC_Wrapper
+            _V1_MPC_Wrapper = V1_MPC_Wrapper
+        except ImportError as e:
+            try:
+                v1_adapter_module = importlib.import_module('V2.robust_mpc.v1_adapter')
+                _V1_MPC_Wrapper = v1_adapter_module.V1_MPC_Wrapper
+            except ImportError:
+                raise ImportError(f"Failed to import V1_MPC_Wrapper: {e}")
+    return _V1_MPC_Wrapper
+
 # Create properties that lazily load the classes
 def __getattr__(name):
     """Module-level __getattr__ for lazy loading."""
@@ -105,6 +139,10 @@ def __getattr__(name):
         return _get_GeneticOptimizer()
     elif name == 'RobustMPCController':
         return _get_RobustMPCController()
+    elif name == 'V1ControllerAdapter':
+        return _get_V1ControllerAdapter()
+    elif name == 'V1_MPC_Wrapper':
+        return _get_V1_MPC_Wrapper()
     else:
         raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
 
@@ -123,7 +161,10 @@ __all__ = [
     # Optimization
     'GeneticOptimizer',
     # Control
-    'RobustMPCController'
+    'RobustMPCController',
+    # V1 Integration
+    'V1ControllerAdapter',
+    'V1_MPC_Wrapper'
 ]
 
 # Library metadata
