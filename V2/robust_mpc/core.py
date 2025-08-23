@@ -190,7 +190,7 @@ class RobustMPCController:
             corrected_mean_scaled = mean_pred_scaled + torch.tensor(disturbance_scaled, device=self.device)
 
             # Adjust for risk (Uncertainty-Awareness)
-            beta = self.config.get('risk_beta', 1.5) # Higher beta = more cautious
+            beta = self.config.get('risk_beta', 1.0) # FIXED: Reduced from 1.5 to 1.0 for balanced exploration
             # For minimization, we penalize the upper bound of the error
             risk_adjusted_pred_scaled = corrected_mean_scaled + beta * std_pred_scaled
 
@@ -233,6 +233,17 @@ class RobustMPCController:
         except Exception as e:
             if self.config.get('verbose', False):
                 print(f"Warning: Failed to update history buffer: {e}")
+                
+        # 2b. CRITICAL SAFETY CHECK: Validate buffer integrity for pharmaceutical manufacturing
+        if len(self.history_buffer) > 0:
+            stats = self.history_buffer.get_statistics()
+            cma_len = stats['cma_samples']
+            cpp_len = stats['cpp_samples']
+            if cma_len != cpp_len:
+                if self.config.get('verbose', False):
+                    print(f"CRITICAL: Buffer misalignment detected - CMA: {cma_len}, CPP: {cpp_len}")
+                    print("This indicates race condition corruption. Using fallback control.")
+                return self._get_fallback_action(control_input)
 
         # 3. Update the integral error term
         self._update_disturbance_estimate(smooth_state, setpoint)

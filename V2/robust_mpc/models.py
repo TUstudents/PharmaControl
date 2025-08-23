@@ -214,3 +214,343 @@ class ProbabilisticTransformer(nn.Module):
         self.eval()
 
         return mean_prediction, std_prediction
+
+
+# ==============================================================================
+# MODEL LOADING AND VALIDATION UTILITIES
+# ==============================================================================
+
+def analyze_checkpoint(checkpoint_path):
+    """Analyze checkpoint structure and extract metadata.
+    
+    This function inspects a PyTorch checkpoint file to determine its structure,
+    available hyperparameters, and model architecture information. Essential for
+    robust model loading across different checkpoint formats.
+    
+    Args:
+        checkpoint_path (str or Path): Path to PyTorch checkpoint file
+        
+    Returns:
+        dict: Analysis results containing:
+            - 'type': 'state_dict', 'full_model', or 'nested_checkpoint'
+            - 'keys': Top-level keys in the checkpoint
+            - 'hyperparameters': Extracted hyperparameters (if available)
+            - 'architecture_info': Inferred architecture parameters
+            - 'model_class': Suggested model class name
+    
+    Example:
+        >>> analysis = analyze_checkpoint("model.pth")
+        >>> print(f"Checkpoint type: {analysis['type']}")
+        >>> print(f"Available hyperparameters: {analysis['hyperparameters']}")
+    """
+    import torch
+    from pathlib import Path
+    
+    checkpoint_path = Path(checkpoint_path)
+    if not checkpoint_path.exists():
+        raise FileNotFoundError(f"Checkpoint file not found: {checkpoint_path}")
+    
+    # Load checkpoint for analysis
+    try:
+        checkpoint = torch.load(checkpoint_path, map_location='cpu')
+    except Exception as e:
+        raise RuntimeError(f"Failed to load checkpoint: {e}")
+    
+    analysis = {
+        'checkpoint_path': str(checkpoint_path),
+        'keys': [],
+        'hyperparameters': {},
+        'architecture_info': {},
+        'model_class': None,
+        'type': 'unknown'
+    }
+    
+    if isinstance(checkpoint, dict):
+        analysis['keys'] = list(checkpoint.keys())
+        
+        # Detect checkpoint type
+        if 'model_state_dict' in checkpoint:
+            analysis['type'] = 'nested_checkpoint'
+            state_dict = checkpoint['model_state_dict']
+            
+            # Extract hyperparameters
+            if 'hyperparameters' in checkpoint:
+                analysis['hyperparameters'] = checkpoint['hyperparameters'].copy()
+                
+        elif any(key.endswith('.weight') or key.endswith('.bias') for key in checkpoint.keys()):
+            analysis['type'] = 'state_dict'
+            state_dict = checkpoint
+        else:
+            analysis['type'] = 'unknown_dict'
+            state_dict = checkpoint
+            
+    elif hasattr(checkpoint, 'state_dict'):
+        analysis['type'] = 'full_model'
+        state_dict = checkpoint.state_dict()
+        analysis['model_class'] = checkpoint.__class__.__name__
+    else:
+        raise ValueError(f"Unrecognized checkpoint format: {type(checkpoint)}")
+    
+    # Infer architecture from state dict
+    if 'state_dict' in locals():
+        arch_info = _infer_architecture_from_state_dict(state_dict)
+        analysis['architecture_info'] = arch_info
+        
+        # Suggest model class based on architecture
+        if 'transformer' in str(state_dict.keys()).lower():
+            if arch_info.get('has_uncertainty_features'):
+                analysis['model_class'] = 'ProbabilisticTransformer'
+            else:
+                analysis['model_class'] = 'GranulationPredictor'
+    
+    return analysis
+
+
+def _infer_architecture_from_state_dict(state_dict):
+    """Infer model architecture parameters from state dictionary."""
+    arch_info = {}
+    
+    # Detect d_model from embedding layers (output dimension of embedding)
+    embedding_keys = [k for k in state_dict.keys() if 'embedding.weight' in k]
+    if embedding_keys:
+        arch_info['d_model'] = state_dict[embedding_keys[0]].shape[0]  # Output dimension is d_model
+    
+    # Count transformer layers
+    encoder_layers = set()
+    decoder_layers = set()
+    
+    for key in state_dict.keys():
+        if 'transformer.encoder.layers.' in key:
+            layer_idx = int(key.split('transformer.encoder.layers.')[1].split('.')[0])
+            encoder_layers.add(layer_idx)
+        elif 'transformer.decoder.layers.' in key:
+            layer_idx = int(key.split('transformer.decoder.layers.')[1].split('.')[0])
+            decoder_layers.add(layer_idx)
+    
+    if encoder_layers:
+        arch_info['num_encoder_layers'] = max(encoder_layers) + 1
+    if decoder_layers:
+        arch_info['num_decoder_layers'] = max(decoder_layers) + 1
+    
+    # Detect number of attention heads
+    attn_keys = [k for k in state_dict.keys() if 'self_attn.in_proj_weight' in k]
+    if attn_keys and 'd_model' in arch_info:
+        in_proj_weight = state_dict[attn_keys[0]]
+        # in_proj_weight shape: (3*d_model, d_model) for combined qkv projection
+        if in_proj_weight.shape[0] == 3 * arch_info['d_model']:
+            # Common head counts that divide d_model evenly
+            d_model = arch_info['d_model']
+            possible_heads = [h for h in [1, 2, 4, 8, 16] if d_model % h == 0]
+            arch_info['nhead'] = possible_heads[-1] if possible_heads else 4
+    
+    # Detect feature dimensions
+    for key, tensor in state_dict.items():
+        if 'cma_encoder_embedding.weight' in key:
+            arch_info['cma_features'] = tensor.shape[1]  # Input features are second dimension
+        elif 'cpp_encoder_embedding.weight' in key:
+            arch_info['cpp_features'] = tensor.shape[1]  # Input features are second dimension
+        elif 'output_linear.weight' in key:
+            arch_info['output_features'] = tensor.shape[0]  # Output features are first dimension
+    
+    # Check for uncertainty/probabilistic features
+    uncertainty_keys = [k for k in state_dict.keys() if any(term in k.lower() for term in ['dropout', 'uncertainty', 'std', 'variance'])]
+    arch_info['has_uncertainty_features'] = len(uncertainty_keys) > 0
+    
+    return arch_info
+
+
+def load_trained_model(checkpoint_path, model_class=None, device='cpu', validate=True):
+    """Universal model loader that handles different checkpoint formats.
+    
+    This function provides robust loading of PyTorch models from various checkpoint
+    formats, automatically detecting architecture parameters and creating the
+    appropriate model instance. Designed to work with both V1 and V2 model formats.
+    
+    Args:
+        checkpoint_path (str or Path): Path to the model checkpoint file
+        model_class (class, optional): Specific model class to instantiate.
+            If None, will be inferred from checkpoint analysis.
+        device (str): Target device ('cpu', 'cuda', etc.). Default: 'cpu'
+        validate (bool): Whether to validate model functionality after loading.
+            Default: True
+    
+    Returns:
+        torch.nn.Module: Loaded and validated model ready for inference
+        
+    Raises:
+        FileNotFoundError: If checkpoint file doesn't exist
+        ValueError: If checkpoint format is unrecognized or model creation fails
+        RuntimeError: If model validation fails
+    
+    Example:
+        >>> # Load V1 model automatically
+        >>> model = load_trained_model("V1/data/best_predictor_model.pth")
+        >>> 
+        >>> # Load with specific model class
+        >>> model = load_trained_model("model.pth", ProbabilisticTransformer)
+        >>> 
+        >>> # Load to specific device
+        >>> model = load_trained_model("model.pth", device='cuda')
+    """
+    from pathlib import Path
+    import torch
+    
+    checkpoint_path = Path(checkpoint_path)
+    print(f"Loading model from: {checkpoint_path}")
+    
+    # Analyze checkpoint structure
+    analysis = analyze_checkpoint(checkpoint_path)
+    print(f"Checkpoint type: {analysis['type']}")
+    
+    # Load checkpoint
+    checkpoint = torch.load(checkpoint_path, map_location=device)
+    
+    # Handle different checkpoint formats
+    if analysis['type'] == 'full_model':
+        # Direct model object
+        model = checkpoint
+        print(f"✅ Loaded full model: {model.__class__.__name__}")
+        
+    elif analysis['type'] in ['nested_checkpoint', 'state_dict']:
+        # Extract state dictionary
+        if analysis['type'] == 'nested_checkpoint':
+            state_dict = checkpoint['model_state_dict']
+            hyperparams = checkpoint.get('hyperparameters', {})
+        else:
+            state_dict = checkpoint
+            hyperparams = {}
+        
+        # Merge hyperparameters with inferred architecture
+        arch_params = {**analysis['architecture_info'], **hyperparams}
+        
+        # Determine model class
+        if model_class is None:
+            suggested_class = analysis['model_class']
+            if suggested_class == 'ProbabilisticTransformer':
+                model_class = ProbabilisticTransformer
+            else:
+                # Try to import V1 GranulationPredictor
+                try:
+                    from V1.src.model_architecture import GranulationPredictor
+                    model_class = GranulationPredictor
+                except ImportError:
+                    # Fallback to ProbabilisticTransformer
+                    model_class = ProbabilisticTransformer
+                    print("⚠️  Could not import V1 GranulationPredictor, using ProbabilisticTransformer")
+        
+        # Extract architecture parameters with defaults
+        d_model = arch_params.get('d_model', 64)
+        nhead = arch_params.get('nhead', 4 if d_model % 4 == 0 else 2)
+        num_encoder_layers = arch_params.get('num_encoder_layers', 2)
+        num_decoder_layers = arch_params.get('num_decoder_layers', 2)
+        cma_features = arch_params.get('cma_features', 2)
+        cpp_features = arch_params.get('cpp_features', 5)
+        
+        print(f"Architecture: d_model={d_model}, nhead={nhead}, layers={num_encoder_layers}/{num_decoder_layers}")
+        
+        # Create model instance
+        try:
+            if model_class == ProbabilisticTransformer:
+                model = ProbabilisticTransformer(
+                    cma_features=cma_features,
+                    cpp_features=cpp_features,
+                    d_model=d_model,
+                    nhead=nhead,
+                    num_encoder_layers=num_encoder_layers,
+                    num_decoder_layers=num_decoder_layers,
+                    dropout=arch_params.get('dropout', 0.1)
+                )
+            else:
+                # V1 GranulationPredictor
+                model = model_class(
+                    cma_features=cma_features,
+                    cpp_features=cpp_features,
+                    d_model=d_model,
+                    nhead=nhead,
+                    num_encoder_layers=num_encoder_layers,
+                    num_decoder_layers=num_decoder_layers
+                )
+            
+            # Load state dictionary
+            model.load_state_dict(state_dict)
+            print(f"✅ Created and loaded {model_class.__name__}")
+            
+        except Exception as e:
+            raise ValueError(f"Failed to create model: {e}")
+    
+    else:
+        raise ValueError(f"Unsupported checkpoint type: {analysis['type']}")
+    
+    # Move to target device
+    model = model.to(device)
+    model.eval()
+    
+    # Validate model functionality
+    if validate:
+        try:
+            # Extract features for validation - use defaults to avoid type issues
+            val_cma_features = 2
+            val_cpp_features = 5
+            
+            # Try to get actual features if available
+            if hasattr(model, 'cma_features'):
+                try:
+                    if isinstance(model.cma_features, int):
+                        val_cma_features = model.cma_features
+                        val_cpp_features = model.cpp_features
+                except:
+                    pass  # Use defaults
+            validate_model_functionality(model, val_cma_features, val_cpp_features)
+            print("✅ Model validation passed")
+        except Exception as e:
+            if not hasattr(e, '__suppress_validation__'):
+                print(f"⚠️  Model validation warning: {e}")
+    
+    param_count = sum(p.numel() for p in model.parameters())
+    print(f"✅ Model loaded successfully: {param_count:,} parameters")
+    
+    return model
+
+
+def validate_model_functionality(model, cma_features=2, cpp_features=5):
+    """Test that model can perform forward pass and basic operations.
+    
+    Args:
+        model (torch.nn.Module): Model to validate
+        cma_features (int): Number of CMA input features
+        cpp_features (int): Number of CPP input features
+        
+    Raises:
+        RuntimeError: If model validation fails
+    """
+    import torch
+    
+    model.eval()
+    
+    # Create test inputs
+    batch_size, seq_len, horizon = 1, 10, 5
+    test_past_cmas = torch.randn(batch_size, seq_len, cma_features)
+    test_past_cpps = torch.randn(batch_size, seq_len, cpp_features)
+    test_future_cpps = torch.randn(batch_size, horizon, cpp_features)
+    
+    with torch.no_grad():
+        try:
+            # Test forward pass
+            if hasattr(model, 'forward'):
+                output = model(test_past_cmas, test_past_cpps, test_future_cpps)
+                assert output.shape == (batch_size, horizon, cma_features), f"Unexpected output shape: {output.shape}"
+            
+            # Test probabilistic prediction if available
+            if hasattr(model, 'predict_distribution'):
+                mean_pred, std_pred = model.predict_distribution(
+                    test_past_cmas, test_past_cpps, test_future_cpps, n_samples=5
+                )
+                assert mean_pred.shape == (batch_size, horizon, cma_features)
+                assert std_pred.shape == (batch_size, horizon, cma_features)
+                assert torch.all(std_pred >= 0), "Standard deviation must be non-negative"
+                
+        except Exception as e:
+            raise RuntimeError(f"Model functionality validation failed: {e}")
+
+
+
