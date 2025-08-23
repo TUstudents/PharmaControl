@@ -3,22 +3,23 @@ import numpy as np
 from deap import base, creator, tools, algorithms
 from typing import Dict, List, Tuple, Callable
 
+
 class GeneticOptimizer:
     """Genetic Algorithm optimizer for complex pharmaceutical process control optimization.
-    
+
     This class implements a sophisticated evolutionary optimization approach using the
     DEAP (Distributed Evolutionary Algorithms in Python) framework. Designed specifically
     for solving challenging Model Predictive Control optimization problems where traditional
     gradient-based methods may fail due to non-convex objective functions, complex constraints,
     or discontinuous fitness landscapes common in pharmaceutical manufacturing.
-    
+
     Key Advantages:
         - Global optimization capability for non-convex problems
         - Robust handling of complex constraint spaces
         - Parallelizable population-based search
         - Effective exploration of multimodal fitness landscapes
         - No gradient information required
-    
+
     Algorithm Overview:
         1. **Population Initialization**: Random sampling within constraint bounds
         2. **Fitness Evaluation**: Objective function assessment for each individual
@@ -26,19 +27,19 @@ class GeneticOptimizer:
         4. **Crossover**: Two-point crossover to create offspring solutions
         5. **Mutation**: Gaussian mutation for solution diversity
         6. **Bound Enforcement**: Constraint satisfaction through repair mechanisms
-    
+
     Optimization Framework:
         - Decision Variables: Control action sequences over prediction horizon
         - Objective Function: Weighted combination of tracking error and control effort
         - Constraints: Process variable bounds and rate-of-change limitations
         - Search Strategy: Population-based evolutionary exploration
-    
+
     Performance Characteristics:
         - Convergence: Typically 50-200 generations for pharmaceutical applications
         - Population Size: Recommended 50-100 individuals for control problems
         - Computational Cost: O(population_size × generations × fitness_evaluations)
         - Success Rate: High reliability for global optima in complex landscapes
-    
+
     Args:
         param_bounds (list): Parameter bounds as [(min₁, max₁), (min₂, max₂), ...] for each
             control variable at each time step. Length = horizon × num_cpps.
@@ -51,18 +52,18 @@ class GeneticOptimizer:
             - 'cx_prob': Crossover probability (default: 0.7)
             - 'mut_prob': Mutation probability (default: 0.2)
             - 'tournament_size': Selection tournament size (default: 3)
-        fitness_function (callable, optional): Objective function to minimize accepting 
+        fitness_function (callable, optional): Objective function to minimize accepting
             control_plan of shape (horizon, num_cpps) and returning scalar cost value.
             Can be provided during initialization or passed to optimize() method.
             Should incorporate tracking error, control effort, and constraint penalties.
-    
+
     Attributes:
         fitness_function (callable): Stored objective function
         param_bounds (list): Stored parameter constraints
         config (dict): Stored optimizer configuration
         n_params (int): Total number of decision variables (horizon × num_cpps)
         toolbox (deap.base.Toolbox): DEAP framework toolbox with registered operators
-    
+
     Example:
         >>> # Configure for granulation process control
         >>> def mpc_fitness(control_plan):
@@ -70,16 +71,16 @@ class GeneticOptimizer:
         ...     tracking_error = calculate_tracking_error(control_plan)
         ...     control_effort = calculate_control_effort(control_plan)
         ...     return tracking_error + 0.1 * control_effort
-        >>> 
+        >>>
         >>> # Define parameter bounds for 5-step horizon, 3 CPPs
         >>> bounds = [(80, 180), (400, 700), (20, 40)] * 5  # spray, air, speed
         >>> config = {'horizon': 5, 'num_cpps': 3, 'population_size': 60}
         >>> optimizer = GeneticOptimizer(bounds, config)  # No fitness function in init
-        >>> 
+        >>>
         >>> # Find optimal control sequence - fitness function passed at optimization time
         >>> best_solution = optimizer.optimize(mpc_fitness)
         >>> optimal_action = best_solution[0, :]  # First control action
-    
+
     Notes:
         - Uses DEAP framework for robust evolutionary algorithm implementation
         - Tournament selection balances exploration and exploitation
@@ -88,6 +89,7 @@ class GeneticOptimizer:
         - Automatic constraint handling through bound repair mechanisms
         - Suitable for non-differentiable and multi-modal objective functions
     """
+
     def __init__(self, param_bounds, config, fitness_function=None):
         # Validate input types
         if not isinstance(param_bounds, list):
@@ -97,15 +99,15 @@ class GeneticOptimizer:
         # fitness_function is now optional and validated at optimization time
         if fitness_function is not None and not callable(fitness_function):
             raise TypeError("fitness_function must be callable")
-            
+
         self.fitness_function = fitness_function  # Can be None, set at optimization time
-        self.param_bounds = param_bounds # List of (min, max) for each gene
+        self.param_bounds = param_bounds  # List of (min, max) for each gene
         self.config = config
-        self.n_params = len(param_bounds) # Number of genes in an individual
-        
+        self.n_params = len(param_bounds)  # Number of genes in an individual
+
         # Validate configuration
         self._validate_config()
-        
+
         # Clean up any existing DEAP creators to prevent conflicts
         self._cleanup_deap_creators()
 
@@ -134,7 +136,7 @@ class GeneticOptimizer:
         self.toolbox.register("evaluate", self._evaluate)
         self.toolbox.register("mate", self._mate_with_bounds)
         self.toolbox.register("mutate", self._mutate_with_bounds)
-        tournsize = self.config.get('tournament_size', 3)
+        tournsize = self.config.get("tournament_size", 3)
         self.toolbox.register("select", tools.selTournament, tournsize=tournsize)
 
     def _sync_rngs(self):
@@ -147,8 +149,8 @@ class GeneticOptimizer:
           constructing the optimizer also control the stdlib random (and therefore
           DEAP which uses it), improving reproducibility for tests.
         """
-        if 'seed' in self.config and self.config['seed'] is not None:
-            seed = int(self.config['seed'])
+        if "seed" in self.config and self.config["seed"] is not None:
+            seed = int(self.config["seed"])
             np.random.seed(seed)
             random.seed(seed)
         else:
@@ -163,11 +165,11 @@ class GeneticOptimizer:
 
     def _create_individual(self):
         """Create a complete individual with position-specific parameter bounds.
-        
+
         Generates a control sequence individual where each gene respects its specific
         parameter bounds. This ensures proper constraint handling during initialization
         and maintains the relationship between gene position and parameter type.
-        
+
         Returns:
             creator.Individual: Complete individual with all genes within their bounds
         """
@@ -176,46 +178,50 @@ class GeneticOptimizer:
             low, high = self.param_bounds[i]
             individual.append(random.uniform(low, high))
         return individual
-    
+
     def _validate_config(self):
         """Validate configuration parameters for consistency."""
-        required_keys = ['horizon', 'num_cpps', 'population_size', 'num_generations']
+        required_keys = ["horizon", "num_cpps", "population_size", "num_generations"]
         for key in required_keys:
             if key not in self.config:
                 raise ValueError(f"Missing required config key: {key}")
-        
+
         # Validate non-zero positive values
-        if self.config['horizon'] <= 0:
+        if self.config["horizon"] <= 0:
             raise ValueError("horizon must be greater than 0")
-        if self.config['num_cpps'] <= 0:
+        if self.config["num_cpps"] <= 0:
             raise ValueError("num_cpps must be greater than 0")
-        if self.config['population_size'] <= 0:
+        if self.config["population_size"] <= 0:
             raise ValueError("population_size must be greater than 0")
-        if self.config['num_generations'] <= 0:
+        if self.config["num_generations"] <= 0:
             raise ValueError("num_generations must be greater than 0")
-            
-        expected_params = self.config['horizon'] * self.config['num_cpps']
+
+        expected_params = self.config["horizon"] * self.config["num_cpps"]
         if len(self.param_bounds) != expected_params:
-            raise ValueError(f"Parameter bounds length {len(self.param_bounds)} != expected {expected_params}")
-        
+            raise ValueError(
+                f"Parameter bounds length {len(self.param_bounds)} != expected {expected_params}"
+            )
+
         # Validate param_bounds is not empty when expected_params > 0
         if expected_params > 0 and not self.param_bounds:
-            raise ValueError("param_bounds cannot be empty when horizon and num_cpps are greater than 0")
-    
+            raise ValueError(
+                "param_bounds cannot be empty when horizon and num_cpps are greater than 0"
+            )
+
     def _cleanup_deap_creators(self):
         """Clean up existing DEAP creator classes to prevent conflicts."""
-        if hasattr(creator, 'FitnessMin'):
+        if hasattr(creator, "FitnessMin"):
             del creator.FitnessMin
-        if hasattr(creator, 'Individual'):
+        if hasattr(creator, "Individual"):
             del creator.Individual
-    
+
     def _mate_with_bounds(self, ind1, ind2):
         """Crossover with bound repair."""
         tools.cxTwoPoint(ind1, ind2)
         self._check_bounds(ind1)
         self._check_bounds(ind2)
         return ind1, ind2
-    
+
     def _mutate_with_bounds(self, individual):
         """Mutation with bound repair, using a configurable mutation sigma.
 
@@ -234,51 +240,51 @@ class GeneticOptimizer:
         Returns:
             tuple: A tuple containing the mutated individual (as required by DEAP).
         """
-        sigma = self.config.get('mutation_sigma', 0.2)
+        sigma = self.config.get("mutation_sigma", 0.2)
         tools.mutGaussian(individual, mu=0, sigma=sigma, indpb=0.1)
         self._check_bounds(individual)
-        return individual,
+        return (individual,)
 
     def _evaluate(self, individual):
         """Evaluate individual fitness using MPC objective function.
-        
+
         Transforms the DEAP individual representation (flat list) into the expected
         control plan format and computes the fitness value using the provided
         objective function. The fitness incorporates tracking error, control effort,
         and constraint violations for comprehensive solution assessment.
-        
+
         Args:
             individual (list): Flat list of decision variables representing
                 control actions over the horizon (length = horizon × num_cpps)
-        
+
         Returns:
             tuple: Single-element tuple containing fitness value (DEAP requirement)
                 Lower values indicate better solutions for minimization problems
-        
+
         Notes:
             - Reshapes flat individual into (horizon, num_cpps) control plan matrix
             - Fitness function should handle constraint violations internally
             - Returned tuple format required by DEAP framework conventions
         """
         # DEAP works with a flat list, we need to reshape it into a control plan
-        control_plan = np.array(individual).reshape(self.config['horizon'], self.config['num_cpps'])
+        control_plan = np.array(individual).reshape(self.config["horizon"], self.config["num_cpps"])
         cost = self.fitness_function(control_plan)
-        return (cost,) # DEAP expects a tuple
+        return (cost,)  # DEAP expects a tuple
 
     def _check_bounds(self, individual):
         """Repair operator to enforce parameter bounds after genetic operations.
-        
+
         Ensures that all genes remain within their specified parameter bounds after
         crossover and mutation operations. Uses simple clipping to the nearest
         boundary value, which maintains feasibility while minimizing disruption
         to the genetic algorithm's search process.
-        
+
         Args:
             individual (list): Individual potentially violating bounds after mutation/crossover
-        
+
         Returns:
             list: Repaired individual with all genes within their respective bounds
-        
+
         Notes:
             - Applies hard constraints through boundary clipping
             - Maintains individual structure and gene relationships
@@ -294,37 +300,37 @@ class GeneticOptimizer:
 
     def optimize(self, fitness_function=None):
         """Execute genetic algorithm optimization to find optimal control sequence.
-        
+
         Performs evolutionary optimization using the configured genetic algorithm
         parameters to search for the control sequence that minimizes the MPC
         objective function. Uses Hall of Fame tracking to preserve the best
         solution found during the evolutionary process.
-        
+
         Algorithm Flow:
             1. Initialize random population within parameter bounds
             2. Evaluate fitness for all individuals
             3. Execute evolutionary loop:
                - Selection: Tournament selection of parents
-               - Crossover: Two-point recombination of parent solutions  
+               - Crossover: Two-point recombination of parent solutions
                - Mutation: Gaussian perturbation for diversity
                - Constraint repair: Bound enforcement
                - Replacement: Generational replacement strategy
             4. Return best solution from Hall of Fame
-        
+
         Args:
             fitness_function (callable, optional): Objective function to minimize.
                 If not provided, uses the fitness function from initialization.
                 Must accept control_plan of shape (horizon, num_cpps) and return scalar cost.
-        
+
         Returns:
-            np.ndarray: Optimal control sequence of shape (horizon, num_cpps) 
+            np.ndarray: Optimal control sequence of shape (horizon, num_cpps)
                 representing the best control plan found during optimization.
                 First row contains the immediate control action to apply.
-        
+
         Raises:
             RuntimeError: If optimization fails to find valid solutions
             ValueError: If configuration parameters are invalid or no fitness function available
-        
+
         Notes:
             - Population diversity maintained through tournament selection
             - Convergence typically achieved within 50-200 generations
@@ -334,48 +340,52 @@ class GeneticOptimizer:
         """
         # Use provided fitness function or fall back to instance fitness function
         current_fitness_function = fitness_function or self.fitness_function
-        
+
         if current_fitness_function is None:
-            raise ValueError("No fitness function available. Provide one during initialization or optimization.")
-        
+            raise ValueError(
+                "No fitness function available. Provide one during initialization or optimization."
+            )
+
         if not callable(current_fitness_function):
             raise TypeError("fitness_function must be callable")
-        
+
         # Update the fitness function for this optimization run
         # Store current fitness function temporarily for evaluation
         previous_fitness_function = self.fitness_function
         self.fitness_function = current_fitness_function
-        
+
         # Re-register the evaluation function with the current fitness function
         self.toolbox.register("evaluate", self._evaluate)
-        
+
         try:
-            pop = self.toolbox.population(n=self.config['population_size'])
+            pop = self.toolbox.population(n=self.config["population_size"])
 
             # Use a hall of fame to keep track of the best individual found so far
             hof = tools.HallOfFame(1)
 
             # Run the evolution
             # Handle different config key names for compatibility
-            crossover_prob = self.config.get('crossover_prob', self.config.get('cx_prob', 0.7))
-            mutation_prob = self.config.get('mutation_prob', self.config.get('mut_prob', 0.2))
-            
+            crossover_prob = self.config.get("crossover_prob", self.config.get("cx_prob", 0.7))
+            mutation_prob = self.config.get("mutation_prob", self.config.get("mut_prob", 0.2))
+
             algorithms.eaSimple(
                 pop,
                 self.toolbox,
                 cxpb=crossover_prob,
                 mutpb=mutation_prob,
-                ngen=self.config['num_generations'],
+                ngen=self.config["num_generations"],
                 halloffame=hof,
-                verbose=False
+                verbose=False,
             )
 
             # Reshape the best individual back into a plan
             best_individual = hof[0]
-            best_plan = np.array(best_individual).reshape(self.config['horizon'], self.config['num_cpps'])
+            best_plan = np.array(best_individual).reshape(
+                self.config["horizon"], self.config["num_cpps"]
+            )
 
             return best_plan
-            
+
         finally:
             # Restore previous fitness function to maintain instance state
             self.fitness_function = previous_fitness_function

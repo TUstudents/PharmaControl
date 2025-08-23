@@ -1,6 +1,6 @@
 """PharmaControl V1: Prototype Transformer-based MPC for Continuous Granulation.
 
-This package implements a prototype Model Predictive Control system for pharmaceutical 
+This package implements a prototype Model Predictive Control system for pharmaceutical
 continuous granulation processes using transformer-based neural network predictions.
 
 The V1 implementation serves as an educational and research prototype, demonstrating
@@ -20,7 +20,7 @@ Modules:
 Key Features:
     - Transformer-based process prediction with attention mechanisms
     - Discrete MPC optimization with constraint handling
-    - Realistic process simulation including time delays and disturbances  
+    - Realistic process simulation including time delays and disturbances
     - Educational notebooks demonstrating complete control system development
     - Integration with pharmaceutical process terminology (CMAs, CPPs)
 
@@ -28,7 +28,7 @@ Process Variables:
     Critical Material Attributes (CMAs):
         - d50: Median particle size distribution (micrometers)
         - lod: Loss on drying/moisture content (percentage)
-    
+
     Critical Process Parameters (CPPs):
         - spray_rate: Liquid binder spray rate (g/min)
         - air_flow: Fluidization air flow rate (m�/h)
@@ -38,14 +38,14 @@ Process Variables:
 
 Typical Usage:
     >>> from V1.src import plant_simulator, model_architecture, mpc_controller, dataset
-    >>> 
+    >>>
     >>> # Create process simulator
     >>> plant = plant_simulator.AdvancedPlantSimulator()
-    >>> 
-    >>> # Load trained model and create MPC controller  
+    >>>
+    >>> # Load trained model and create MPC controller
     >>> model = torch.load('best_predictor_model.pth')
     >>> controller = mpc_controller.MPCController(model, config, constraints, scalers)
-    >>> 
+    >>>
     >>> # Run closed-loop control
     >>> cpps = {'spray_rate': 120.0, 'air_flow': 500.0, 'carousel_speed': 30.0}
     >>> state = plant.step(cpps)
@@ -62,7 +62,7 @@ Educational Value:
     This prototype implementation prioritizes clarity and understanding over
     performance, making it ideal for:
     - Learning MPC fundamentals with modern ML predictions
-    - Understanding transformer applications in process control  
+    - Understanding transformer applications in process control
     - Developing pharmaceutical process control intuition
     - Benchmarking against advanced V2 robust implementation
 
@@ -73,7 +73,7 @@ Authors: PharmaControl Development Team
 
 # Import key classes for convenient access
 from .plant_simulator import AdvancedPlantSimulator
-from .model_architecture import GranulationPredictor, PositionalEncoding  
+from .model_architecture import GranulationPredictor, PositionalEncoding
 from .mpc_controller import MPCController
 from .dataset import GranulationDataset
 
@@ -87,66 +87,69 @@ __description__ = "Prototype Transformer-based MPC for Pharmaceutical Continuous
 __all__ = [
     # Core classes
     "AdvancedPlantSimulator",
-    "GranulationPredictor", 
+    "GranulationPredictor",
     "PositionalEncoding",
     "MPCController",
     "GranulationDataset",
-    
     # Package metadata
     "__version__",
-    "__author__", 
+    "__author__",
     "__email__",
-    "__description__"
+    "__description__",
 ]
 
 # Version compatibility check
 import sys
+
 if sys.version_info < (3, 9):
     raise ImportError("PharmaControl V1 requires Python 3.9 or higher")
 
 # Optional dependency checks with informative error messages
 try:
     import torch
+
     if torch.__version__ < "1.9.0":
         import warnings
+
         warnings.warn(
             f"PyTorch version {torch.__version__} detected. "
             "PharmaControl V1 is tested with PyTorch >= 1.9.0. "
             "Some features may not work correctly with older versions.",
-            UserWarning
+            UserWarning,
         )
 except ImportError:
     raise ImportError(
-        "PyTorch is required for PharmaControl V1. "
-        "Install with: pip install torch>=1.9.0"
+        "PyTorch is required for PharmaControl V1. " "Install with: pip install torch>=1.9.0"
     )
 
 try:
     import pandas as pd
+
     if pd.__version__ < "1.3.0":
         import warnings
+
         warnings.warn(
             f"Pandas version {pd.__version__} detected. "
             "PharmaControl V1 is tested with Pandas >= 1.3.0.",
-            UserWarning
+            UserWarning,
         )
 except ImportError:
     raise ImportError(
-        "Pandas is required for PharmaControl V1. "
-        "Install with: pip install pandas>=1.3.0"
+        "Pandas is required for PharmaControl V1. " "Install with: pip install pandas>=1.3.0"
     )
 
 try:
     import numpy as np
+
     if np.__version__ < "1.20.0":
         import warnings
+
         warnings.warn(
             f"NumPy version {np.__version__} detected. "
             "PharmaControl V1 is tested with NumPy >= 1.20.0.",
-            UserWarning
+            UserWarning,
         )
 except ImportError:
     raise ImportError(
-        "NumPy is required for PharmaControl V1. "
-        "Install with: pip install numpy>=1.20.0"
+        "NumPy is required for PharmaControl V1. " "Install with: pip install numpy>=1.20.0"
     )
