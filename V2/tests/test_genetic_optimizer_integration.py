@@ -6,12 +6,13 @@ focusing on end-to-end optimization workflows, convergence behavior, and
 real-world pharmaceutical process control scenarios.
 """
 
-import pytest
-import numpy as np
+import os
+import sys
 import time
 from unittest.mock import Mock
-import sys
-import os
+
+import numpy as np
+import pytest
 
 # Import the module under test
 from robust_mpc.optimizers import GeneticOptimizer

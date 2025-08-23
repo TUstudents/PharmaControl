@@ -1,7 +1,8 @@
 import random
+from typing import Callable, Dict, List, Tuple
+
 import numpy as np
-from deap import base, creator, tools, algorithms
-from typing import Dict, List, Tuple, Callable
+from deap import algorithms, base, creator, tools
 
 
 class GeneticOptimizer:

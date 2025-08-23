@@ -6,11 +6,12 @@ optimizer used in the robust MPC framework. Tests cover initialization,
 configuration validation, genetic operations, and constraint handling.
 """
 
-import pytest
-import numpy as np
-from unittest.mock import Mock, patch, MagicMock
-import sys
 import os
+import sys
+from unittest.mock import MagicMock, Mock, patch
+
+import numpy as np
+import pytest
 
 # Import the module under test
 from robust_mpc.optimizers import GeneticOptimizer

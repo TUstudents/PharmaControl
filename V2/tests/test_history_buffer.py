@@ -6,19 +6,20 @@ and replaces the previous unrealistic mock history generation with accurate
 historical context for model predictions.
 """
 
-import pytest
-import numpy as np
-import time
-import threading
-from sklearn.preprocessing import MinMaxScaler
-import sys
 import os
+import sys
+import threading
+import time
+
+import numpy as np
+import pytest
+from sklearn.preprocessing import MinMaxScaler
 
 # Add the project root to the path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
-from V2.robust_mpc.data_buffer import DataBuffer, StartupHistoryGenerator
 from V2.robust_mpc.core import RobustMPCController
+from V2.robust_mpc.data_buffer import DataBuffer, StartupHistoryGenerator
 
 
 class TestDataBuffer:

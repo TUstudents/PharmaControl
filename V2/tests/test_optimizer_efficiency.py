@@ -5,12 +5,13 @@ This module validates that the optimizer is properly instantiated as an instance
 variable and reused across control steps, rather than being created fresh each time.
 """
 
-import pytest
-import numpy as np
-import time
-from sklearn.preprocessing import MinMaxScaler
-import sys
 import os
+import sys
+import time
+
+import numpy as np
+import pytest
+from sklearn.preprocessing import MinMaxScaler
 
 # Add the project root to the path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))

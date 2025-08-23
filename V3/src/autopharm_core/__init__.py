@@ -15,11 +15,11 @@ __author__ = "PharmaControl Development Team"
 # Progressive imports as components become available
 try:
     from .common.types import (
-        StateVector,
         ControlAction,
-        ModelPrediction,
-        TrainingMetrics,
         DecisionExplanation,
+        ModelPrediction,
+        StateVector,
+        TrainingMetrics,
     )
 except ImportError:
     pass

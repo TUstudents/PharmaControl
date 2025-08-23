@@ -5,13 +5,14 @@ This module validates that the race condition fixes are properly integrated
 into the pharmaceutical process control system.
 """
 
-import pytest
-import numpy as np
-import torch
-import warnings
-from sklearn.preprocessing import MinMaxScaler
-import sys
 import os
+import sys
+import warnings
+
+import numpy as np
+import pytest
+import torch
+from sklearn.preprocessing import MinMaxScaler
 
 # Add the project root to the path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))

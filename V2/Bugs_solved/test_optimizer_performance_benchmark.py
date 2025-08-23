@@ -7,11 +7,12 @@ the GeneticOptimizer once as an instance variable rather than creating it fresh
 on every control step.
 """
 
-import numpy as np
-import time
-from sklearn.preprocessing import MinMaxScaler
-import sys
 import os
+import sys
+import time
+
+import numpy as np
+from sklearn.preprocessing import MinMaxScaler
 
 # Add project paths
 sys.path.insert(0, os.path.abspath("."))

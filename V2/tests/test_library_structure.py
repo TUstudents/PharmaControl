@@ -5,9 +5,10 @@ These tests ensure that the library imports correctly and basic
 functionality is available even before all components are implemented.
 """
 
-import pytest
-import sys
 import os
+import sys
+
+import pytest
 
 # Add the parent directory to path to import robust_mpc
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -97,8 +98,8 @@ def test_models_module():
 def test_optimizers_module():
     """Test that optimizers module imports correctly."""
     try:
-        from robust_mpc import optimizers
         import numpy as np
+        from robust_mpc import optimizers
 
         # Test GeneticOptimizer class (implemented in V2-3)
         assert hasattr(optimizers, "GeneticOptimizer")
@@ -192,8 +193,7 @@ def test_direct_imports():
     """Test that key classes can be imported directly."""
     try:
         # These should work since they're implemented
-        from robust_mpc import KalmanStateEstimator
-        from robust_mpc import ProbabilisticTransformer
+        from robust_mpc import KalmanStateEstimator, ProbabilisticTransformer
 
         # Test that implemented classes can be instantiated
         estimator_works = KalmanStateEstimator.__name__ == "KalmanStateEstimator"

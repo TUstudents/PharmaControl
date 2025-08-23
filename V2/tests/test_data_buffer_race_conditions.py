@@ -5,13 +5,14 @@ This module validates the critical atomic sample operations that prevent
 race condition data misalignment in pharmaceutical manufacturing environments.
 """
 
-import pytest
-import numpy as np
+import os
+import sys
 import threading
 import time
 import warnings
-import sys
-import os
+
+import numpy as np
+import pytest
 
 # Add the project root to the path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))

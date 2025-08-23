@@ -7,12 +7,14 @@ Tests focus on mathematical properties that should hold regardless of
 specific parameter values.
 """
 
-import pytest
-import numpy as np
-from hypothesis import given, strategies as st, settings, assume
-from hypothesis.extra.numpy import arrays
-import sys
 import os
+import sys
+
+import numpy as np
+import pytest
+from hypothesis import assume, given, settings
+from hypothesis import strategies as st
+from hypothesis.extra.numpy import arrays
 
 # Import the module under test
 from robust_mpc.optimizers import GeneticOptimizer

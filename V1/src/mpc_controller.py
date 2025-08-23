@@ -1,9 +1,10 @@
-import torch
+import itertools
+from typing import Dict, List, Tuple
+
 import numpy as np
 import pandas as pd
-import itertools
+import torch
 from tqdm.auto import tqdm
-from typing import Dict, List, Tuple
 
 
 class MPCController:

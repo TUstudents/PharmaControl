@@ -1,20 +1,21 @@
-import pytest
-import pandas as pd
-import numpy as np
-import torch
-import joblib
-from unittest.mock import MagicMock, patch
-
 # Add project root to path to allow V1 and V2 imports
 import sys
 from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import joblib
+import numpy as np
+import pandas as pd
+import pytest
+import torch
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
+from V2.robust_mpc.models import load_trained_model
+from V2.robust_mpc.v1_adapter import V1_MPC_Wrapper
+
 # V1 and V2 components
 from V1.src.mpc_controller import MPCController as V1Controller
-from V2.robust_mpc.v1_adapter import V1_MPC_Wrapper
-from V2.robust_mpc.models import load_trained_model
 
 # Constants
 V1_DATA_PATH = Path(__file__).parent.parent.parent / "V1/data"

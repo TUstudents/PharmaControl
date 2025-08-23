@@ -7,8 +7,9 @@ Each function has known characteristics (unimodal/multimodal, separable/
 non-separable, global optimum location) useful for systematic testing.
 """
 
+from typing import Any, Callable, Dict, Tuple
+
 import numpy as np
-from typing import Callable, Dict, Tuple, Any
 
 
 def get_sphere_function() -> Callable[[np.ndarray], float]:

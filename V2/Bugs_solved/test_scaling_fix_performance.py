@@ -7,11 +7,12 @@ by fixing the critical parameter bounds scaling bug. It compares optimization
 behavior before and after the fix.
 """
 
-import numpy as np
-import matplotlib.pyplot as plt
-from sklearn.preprocessing import MinMaxScaler
-import sys
 import os
+import sys
+
+import matplotlib.pyplot as plt
+import numpy as np
+from sklearn.preprocessing import MinMaxScaler
 
 # Add project paths
 sys.path.insert(0, os.path.abspath("."))

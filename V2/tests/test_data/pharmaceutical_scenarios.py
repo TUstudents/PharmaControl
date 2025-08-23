@@ -6,9 +6,10 @@ including granulation, coating, tableting, and various operational
 conditions like startup, disturbance rejection, and grade changeover.
 """
 
-import numpy as np
-from typing import Dict, List, Tuple, Callable, Any
 from dataclasses import dataclass
+from typing import Any, Callable, Dict, List, Tuple
+
+import numpy as np
 
 
 @dataclass

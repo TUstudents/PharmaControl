@@ -6,11 +6,12 @@ This script shows the critical difference between the old unrealistic mock histo
 generation and the new real trajectory tracking for pharmaceutical process control.
 """
 
-import numpy as np
-import matplotlib.pyplot as plt
-from sklearn.preprocessing import MinMaxScaler
-import sys
 import os
+import sys
+
+import matplotlib.pyplot as plt
+import numpy as np
+from sklearn.preprocessing import MinMaxScaler
 
 # Add project paths
 sys.path.insert(0, os.path.abspath("."))

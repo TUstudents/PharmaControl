@@ -13,16 +13,17 @@ Author: PharmaControl-Pro Development Team
 Version: 2.0.0
 """
 
-import yaml
-import time
-import joblib
-import torch
-import numpy as np
+import argparse
 import os
 import sys
-import argparse
-from typing import Dict, Any
+import time
 import warnings
+from typing import Any, Dict
+
+import joblib
+import numpy as np
+import torch
+import yaml
 
 warnings.filterwarnings("ignore")
 
@@ -33,10 +34,10 @@ sys.path.insert(0, os.path.abspath("../V1/src/"))
 
 # --- V2 Imports ---
 try:
+    from core import RobustMPCController
     from estimators import KalmanStateEstimator
     from models import ProbabilisticTransformer
     from optimizers import GeneticOptimizer
-    from core import RobustMPCController
 
     print("V2 RobustMPC components loaded successfully")
 except ImportError as e:

@@ -6,11 +6,12 @@ This script demonstrates that the critical hardcoded indices bug has been fixed
 and that soft sensor calculations are now immune to column order changes.
 """
 
+import os
+import sys
+
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
-import sys
-import os
 
 # Add project paths
 sys.path.insert(0, os.path.abspath("."))

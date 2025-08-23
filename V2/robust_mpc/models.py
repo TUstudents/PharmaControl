@@ -1,6 +1,7 @@
+import math
+
 import torch
 import torch.nn as nn
-import math
 
 
 # CRITICAL FIX: Use corrected PositionalEncoding for batch_first=True
@@ -263,8 +264,9 @@ def analyze_checkpoint(checkpoint_path):
         >>> print(f"Checkpoint type: {analysis['type']}")
         >>> print(f"Available hyperparameters: {analysis['hyperparameters']}")
     """
-    import torch
     from pathlib import Path
+
+    import torch
 
     checkpoint_path = Path(checkpoint_path)
     if not checkpoint_path.exists():
@@ -417,6 +419,7 @@ def load_trained_model(checkpoint_path, model_class=None, device="cpu", validate
         >>> model = load_trained_model("model.pth", device='cuda')
     """
     from pathlib import Path
+
     import torch
 
     checkpoint_path = Path(checkpoint_path)

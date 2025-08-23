@@ -7,10 +7,11 @@ of fallback actions, showing how pharmaceutical process control is now safe
 from the very first control step.
 """
 
+import os
+import sys
+
 import numpy as np
 from sklearn.preprocessing import MinMaxScaler
-import sys
-import os
 
 # Add project paths
 sys.path.insert(0, os.path.abspath("."))

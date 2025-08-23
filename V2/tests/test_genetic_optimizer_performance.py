@@ -6,13 +6,14 @@ algorithm optimizer, focusing on scalability, execution time, and resource
 usage patterns across different problem sizes and configurations.
 """
 
-import pytest
-import numpy as np
-import time
-import psutil
-import sys
 import os
+import sys
+import time
 from unittest.mock import Mock
+
+import numpy as np
+import psutil
+import pytest
 
 # Import the module under test
 from robust_mpc.optimizers import GeneticOptimizer

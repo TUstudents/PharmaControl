@@ -71,11 +71,12 @@ License: See LICENSE file in project root
 Authors: PharmaControl Development Team
 """
 
-# Import key classes for convenient access
-from .plant_simulator import AdvancedPlantSimulator
+from .dataset import GranulationDataset
 from .model_architecture import GranulationPredictor, PositionalEncoding
 from .mpc_controller import MPCController
-from .dataset import GranulationDataset
+
+# Import key classes for convenient access
+from .plant_simulator import AdvancedPlantSimulator
 
 # Package metadata
 __version__ = "1.0.0"
