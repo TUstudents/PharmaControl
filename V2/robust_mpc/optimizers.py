@@ -217,8 +217,25 @@ class GeneticOptimizer:
         return ind1, ind2
     
     def _mutate_with_bounds(self, individual):
-        """Mutation with bound repair."""
-        tools.mutGaussian(individual, mu=0, sigma=0.2, indpb=0.1)
+        """Mutation with bound repair, using a configurable mutation sigma.
+
+        This method applies Gaussian mutation to an individual's genes. The standard
+        deviation (sigma) of the mutation can be configured in the optimizer's
+        configuration dictionary under the key 'mutation_sigma'. If not provided,
+        it defaults to 0.2. This allows for fine-tuning the exploration-exploitation
+        balance of the genetic algorithm.
+
+        After mutation, it ensures the individual's genes remain within their
+        specified bounds using the _check_bounds repair mechanism.
+
+        Args:
+            individual (creator.Individual): The individual to be mutated.
+
+        Returns:
+            tuple: A tuple containing the mutated individual (as required by DEAP).
+        """
+        sigma = self.config.get('mutation_sigma', 0.2)
+        tools.mutGaussian(individual, mu=0, sigma=sigma, indpb=0.1)
         self._check_bounds(individual)
         return individual,
 
